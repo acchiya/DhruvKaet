@@ -11,7 +11,7 @@ class Boot extends Phaser.Scene {
     AUDIO.forEach(a => this.load.audio(a.code, `assets/audio/${a.code}.mp3`));
   }
   create() {
-    IMAGES.forEach(a => { if (!this.textures.exists(a.code)) makePlaceholder(this, a); });
+    IMAGES.forEach(a => { if (!a.optional && !this.textures.exists(a.code)) makePlaceholder(this, a); });
     this.registry.set('lives', 3);
     this.scene.start('Select');
   }
