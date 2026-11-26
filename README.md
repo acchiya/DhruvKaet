@@ -1,4 +1,4 @@
-# DhruvKaet
+# Dhruvkaat
 
 A side-scrolling platformer starring me and my friends. Built with Phaser 3 (bundled in `lib/`, no install needed).
 

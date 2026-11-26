@@ -21,13 +21,15 @@ window.IMAGES = [
   { code: 'C3', w: 32, h: 96, color: '#1abc9c', desc: 'Level goal / finish flag' },
 
   // D = Tiles (32x32)
-  { code: 'D1', w: 32, h: 32, color: '#6d4c2f', desc: 'Ground tile' },
+  { code: 'D1', w: 32, h: 32, color: '#6d4c2f', desc: 'Grass ground (top layer)', art: 'grass' },
+  { code: 'D5', w: 32, h: 32, color: '#6d4c2f', desc: 'Dirt ground (under grass)', art: 'dirt' },
   { code: 'D2', w: 32, h: 32, color: '#b5651d', desc: 'Breakable brick' },
   { code: 'D3', w: 32, h: 32, color: '#f39c12', desc: 'Surprise block (unused)' },
   { code: 'D4', w: 32, h: 32, color: '#7f6a4f', desc: 'Surprise block (used)' },
 
   // E = Backgrounds
-  { code: 'E1', w: 800, h: 480, color: '#5dade2', desc: 'Level 1 background' },
+  { code: 'E1', w: 800, h: 480, color: '#5dade2', desc: 'Sky background', art: 'sky' },
+  { code: 'E2', w: 800, h: 240, color: '#ffffff', desc: 'Clouds layer (scrolls slowly)', art: 'clouds' },
 
   // F = UI
   { code: 'F1', w: 400, h: 100, color: '#34495e', desc: 'Game title logo' },
@@ -51,7 +53,7 @@ window.CHARACTERS = [
 ];
 
 window.TEXT = {
-  title: 'DhruvKaet #T9',
+  title: 'Dhruvkaat #T9',
   winMessage: 'Level clear! #T10',
   gameOverMessage: 'Game over! #T11',
 };

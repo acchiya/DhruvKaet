@@ -18,6 +18,7 @@ class Boot extends Phaser.Scene {
 function makePlaceholder(scene, a) {
   const tex = scene.textures.createCanvas(a.code, a.w, a.h);
   const ctx = tex.getContext();
+  if (a.art && ART[a.art]) { ART[a.art](ctx, a.w, a.h); tex.refresh(); return; }
   ctx.fillStyle = a.color; ctx.fillRect(0, 0, a.w, a.h);
   ctx.strokeStyle = '#000'; ctx.lineWidth = 2; ctx.strokeRect(1, 1, a.w - 2, a.h - 2);
   ctx.fillStyle = '#fff';
@@ -26,6 +27,43 @@ function makePlaceholder(scene, a) {
   ctx.fillText('#' + a.code, a.w / 2, a.h / 2);
   tex.refresh();
 }
+
+// Built-in default art (used until you drop in your own PNG for that code)
+function rng(seed) { return () => (seed = (seed * 16807) % 2147483647) / 2147483647; }
+function dirtPixels(ctx, w, h, y0, r) {
+  ctx.fillStyle = '#8b5a2b'; ctx.fillRect(0, y0, w, h - y0);
+  for (let i = 0; i < 40; i++) {
+    ctx.fillStyle = r() < 0.5 ? '#7a4e24' : '#9c6a37';
+    ctx.fillRect(Math.floor(r() * w / 2) * 2, y0 + Math.floor(r() * (h - y0) / 2) * 2, 2, 2);
+  }
+}
+const ART = {
+  grass(ctx, w, h) {
+    const r = rng(7); dirtPixels(ctx, w, h, 0, r);
+    ctx.fillStyle = '#4caf50'; ctx.fillRect(0, 0, w, 8);
+    ctx.fillStyle = '#7bd36b'; ctx.fillRect(0, 0, w, 3);
+    ctx.fillStyle = '#3e9142';
+    for (let x = 0; x < w; x += 4) ctx.fillRect(x, 8, 2, 2 + Math.floor(r() * 4));
+  },
+  dirt(ctx, w, h) { dirtPixels(ctx, w, h, 0, rng(13)); },
+  sky(ctx, w, h) {
+    const g = ctx.createLinearGradient(0, 0, 0, h);
+    g.addColorStop(0, '#4a9fe8'); g.addColorStop(1, '#bfe6ff');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = '#9fd0a8'; // distant hills
+    for (const [cx, rad] of [[120, 160], [420, 220], [700, 170]]) {
+      ctx.beginPath(); ctx.arc(cx, h + 60, rad, Math.PI, 0); ctx.fill();
+    }
+  },
+  clouds(ctx, w, h) {
+    ctx.fillStyle = '#ffffff';
+    for (const [x, y, s] of [[80, 60, 1], [330, 110, 0.8], [560, 50, 1.2], [720, 150, 0.7]]) {
+      for (const [dx, dy, rad] of [[0, 0, 22], [24, -10, 28], [52, 0, 22], [26, 8, 20]]) {
+        ctx.beginPath(); ctx.arc(x + dx * s, y + dy * s, rad * s, 0, Math.PI * 2); ctx.fill();
+      }
+    }
+  },
+};
 
 function sfx(scene, code, cfg) { if (scene.cache.audio.exists(code)) scene.sound.play(code, cfg); }
 
@@ -74,6 +112,7 @@ class Game extends Phaser.Scene {
     const map = LEVELS[this.levelIndex];
     const W = map[0].length * TILE, H = map.length * TILE;
     this.add.image(0, 0, 'E1').setOrigin(0).setScrollFactor(0).setDisplaySize(VIEW_W, VIEW_H);
+    this.clouds = this.add.tileSprite(0, 0, VIEW_W, 240, 'E2').setOrigin(0).setScrollFactor(0);
 
     this.physics.world.setBounds(0, 0, W, H + 200);
     this.physics.world.setBoundsCollision(true, true, true, false);
@@ -85,7 +124,7 @@ class Game extends Phaser.Scene {
 
     map.forEach((row, ty) => [...row].forEach((c, tx) => {
       const x = tx * TILE + TILE / 2, y = ty * TILE + TILE / 2;
-      if (c === '#') this.tile(x, y, 'D1', 'ground');
+      if (c === '#') this.tile(x, y, ty > 0 && map[ty - 1][tx] === '#' ? 'D5' : 'D1', 'ground');
       else if (c === 'B') this.tile(x, y, 'D2', 'brick');
       else if (c === '?') this.tile(x, y, 'D3', 'coinBlock');
       else if (c === 'P') this.tile(x, y, 'D3', 'powerBlock');
@@ -214,6 +253,7 @@ class Game extends Phaser.Scene {
   }
 
   update(time) {
+    this.clouds.tilePositionX = this.cameras.main.scrollX * 0.2 + time * 0.005;
     if (this.done) return;
     const p = this.player, k = this.keys, c = this.char;
     const left = k.LEFT.isDown || k.A.isDown, right = k.RIGHT.isDown || k.D.isDown;

@@ -12,11 +12,13 @@ Every placeholder in the game shows its code (e.g. `#A1`). Give me the file or t
 | C1 | Coin / collectible | 20×20 | Doesn't have to be a coin: a face, a snack, anything |
 | C2 | Power-up | 28×28 | Makes you bigger and lets you take 1 hit |
 | C3 | Finish flag / goal | 32×96 | Tall and thin |
-| D1 | Ground tile | 32×32 | Must tile seamlessly |
+| D1 | Grass ground (top layer) | 32×32 | Has built-in art; replace if you want |
+| D5 | Dirt ground (under grass) | 32×32 | Has built-in art |
 | D2 | Breakable brick | 32×32 | |
 | D3 | Surprise block | 32×32 | |
 | D4 | Used surprise block | 32×32 | |
-| E1 | Level 1 background | 800×480 | |
+| E1 | Sky background | 800×480 | Has built-in art |
+| E2 | Clouds layer | 800×240 | Transparent PNG, scrolls slowly; has built-in art |
 | F1 | Title logo | 400×100 | |
 
 Bigger PNGs are fine if the **aspect ratio** matches (e.g. 64×96 for a character).
