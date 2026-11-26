@@ -9,7 +9,8 @@
 // w/h = size the game draws it at (your PNG can be any size; keep the same aspect ratio).
 window.IMAGES = [
   // A = Playable character
-  { code: 'A1', w: 32, h: 48, color: '#e74c3c', desc: 'Dhruv (player)' },
+  { code: 'A1', w: 96, h: 128, color: '#e74c3c', desc: 'Dhruv (player) spritesheet: idle 0-2, run 3-6, jump 7-9',
+    sheet: { frameWidth: 96, frameHeight: 128 } },
 
   // B = Enemies
   { code: 'B1', w: 32, h: 32, color: '#8e5a2b', desc: 'Walking enemy' },

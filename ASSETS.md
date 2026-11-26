@@ -6,7 +6,7 @@ Every placeholder in the game shows its code (e.g. `#A1`). Give me the file or t
 
 | Code | What | Draw size (px) | Notes |
 |---|---|---|---|
-| A1 | Dhruv (player) | 32×48 | Facing **right**, full body, transparent background |
+| A1 | Dhruv (player) | 96×128 per frame | **Done.** Spritesheet, 10 frames: idle 0-2, run 3-6, jump 7-9. Built by `art-src/make_a1_sheet.py` |
 | B1 | Walking enemy | 32×32 | Facing **left** |
 | B2 | Flying enemy | 32×32 | Facing left |
 | C1 | Coin / collectible | 20×20 | Doesn't have to be a coin: a face, a snack, anything |

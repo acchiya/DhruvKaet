@@ -5,7 +5,9 @@ class Boot extends Phaser.Scene {
   constructor() { super('Boot'); }
   preload() {
     this.load.on('loaderror', () => {}); // missing files are expected
-    IMAGES.forEach(a => this.load.image(a.code, `assets/images/${a.code}.png`));
+    IMAGES.forEach(a => a.sheet
+      ? this.load.spritesheet(a.code, `assets/images/${a.code}.png`, a.sheet)
+      : this.load.image(a.code, `assets/images/${a.code}.png`));
     AUDIO.forEach(a => this.load.audio(a.code, `assets/audio/${a.code}.mp3`));
   }
   create() {
@@ -137,7 +139,16 @@ class Game extends Phaser.Scene {
 
     // Player
     this.player = this.physics.add.sprite(start.x, start.y, this.char.sprite);
-    this.player.setDisplaySize(32, 48).setCollideWorldBounds(true).setMaxVelocity(700, 900);
+    this.player.setCollideWorldBounds(true).setMaxVelocity(700, 900);
+    this.setPlayerSize(false);
+    this.animated = this.textures.get(this.char.sprite).frameTotal > 2;
+    if (this.animated && !this.anims.exists('idle')) {
+      const k = this.char.sprite;
+      this.anims.create({ key: 'idle', frames: this.anims.generateFrameNumbers(k, { start: 0, end: 2 }), frameRate: 3, repeat: -1 });
+      this.anims.create({ key: 'run', frames: this.anims.generateFrameNumbers(k, { start: 3, end: 6 }), frameRate: 10, repeat: -1 });
+      this.anims.create({ key: 'jumpUp', frames: [{ key: k, frame: 8 }] });
+      this.anims.create({ key: 'fall', frames: [{ key: k, frame: 9 }] });
+    }
     this.big = false; this.invulnUntil = 0; this.jumps = 0; this.dashUntil = 0; this.dashReady = 0; this.done = false;
 
     this.physics.add.collider(this.player, this.solids, (p, b) => this.hitBlock(b));
@@ -158,6 +169,15 @@ class Game extends Phaser.Scene {
     this.updateHud();
 
     if (this.cache.audio.exists('S7') && !this.sound.get('S7')) this.sound.play('S7', { loop: true, volume: 0.4 });
+  }
+
+  setPlayerSize(big) {
+    // display size in game pixels; hitbox narrower than the big hair
+    const [w, h] = big ? [60, 80] : [48, 64];
+    const p = this.player;
+    p.setDisplaySize(w, h);
+    const fw = p.frame.realWidth, fh = p.frame.realHeight;
+    p.body.setSize(fw * 0.5, fh * 0.92).setOffset(fw * 0.25, fh * 0.08);
   }
 
   tile(x, y, key, type) {
@@ -204,7 +224,7 @@ class Game extends Phaser.Scene {
   grow() {
     sfx(this, 'S3');
     if (this.big) return;
-    this.big = true; this.player.setDisplaySize(40, 60); this.player.y -= 12;
+    this.big = true; this.player.y -= 16; this.setPlayerSize(true);
   }
 
   touchEnemy(e) {
@@ -218,7 +238,7 @@ class Game extends Phaser.Scene {
   hurt() {
     if (this.time.now < this.invulnUntil) return;
     if (this.big) {
-      sfx(this, 'S5'); this.big = false; this.player.setDisplaySize(32, 48);
+      sfx(this, 'S5'); this.big = false; this.setPlayerSize(false);
       this.invulnUntil = this.time.now + 1500;
       this.tweens.add({ targets: this.player, alpha: 0.3, yoyo: true, repeat: 7, duration: 90, onComplete: () => this.player.setAlpha(1) });
     } else this.die();
@@ -279,6 +299,11 @@ class Game extends Phaser.Scene {
       else if (c.ability === 'doubleJump' && this.jumps < 2) { p.setVelocityY(-c.jump * 0.85); this.jumps = 2; sfx(this, 'S1'); }
     }
     if (!jumpHeld && p.body.velocity.y < -150) p.setVelocityY(-150); // variable jump height
+    if (this.animated) {
+      if (!p.body.blocked.down) p.anims.play(p.body.velocity.y < 0 ? 'jumpUp' : 'fall', true);
+      else if (Math.abs(p.body.velocity.x) > 10) p.anims.play('run', true);
+      else p.anims.play('idle', true);
+    }
     if (c.ability === 'float' && jumpHeld && p.body.velocity.y > 60) p.setVelocityY(60);
 
     // Enemies
