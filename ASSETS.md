@@ -64,13 +64,16 @@ Later: one spritesheet per boss (idle, walk, attack, hurt, power-up animation, p
 | Code | What | Size | |
 |---|---|---|---|
 | L1–L6 | Level backgrounds (Library … Aryabhatta) | 800×480 | 🎨 |
-| D1 / D5 | Ground top / ground fill tiles | 32×32 | 🎨 |
+| D1 / D5 | Ground top / ground fill tiles (seamless) | 32×32 | 🎨 |
+| D2 | Floating ledge tile (repeats sideways) | 32×16 | 🎨 |
 | F1 | Title logo | 400×100 | ⬜ |
 | F2 | Campus map (`F2.jpg`) | 1672×941 | ✅ |
 | F3 | Heart icon | 16×16 | 🎨 |
 
 ## S: Audio → `assets/audio/<CODE>.mp3` (all optional)
-S1 jump · S2 attack swing · S3 hit enemy · S4 Dhruv hurt · S5 Dhruv dies · S6 boss power-up · S7 level music · S8 boss music · S9 boss defeated · S10 new weapon · S11 map music
+S1 jump · S2 attack swing · S3 hit enemy · S4 Dhruv hurt · S5 Dhruv dies · S6 boss power-up · S7 level music · S8 boss music · S9 boss defeated · S10 new weapon · S11 map music · S12 clink (unkillable) · S13 menu move
+
+Free placeholder sounds (Kenney, CC0) already play for S1-S6, S9, S10, S12, S13. Dropping in your own mp3 replaces them. Music (S7, S8, S11) is still silent.
 
 ## T: Text (just tell me)
 | Code | What |

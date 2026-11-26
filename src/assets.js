@@ -58,6 +58,7 @@ window.IMAGES = [
 
   // D: Ground
   img('D1', 'Ground top', 32, 32, '#3b3a4a', { art: 'groundTop' }),
+  img('D2', 'Platform / ledge', 32, 16, '#4a3426', { art: 'plat' }),
   img('D5', 'Ground fill', 32, 32, '#2b2a36', { art: 'groundFill' }),
 
   // F: UI
@@ -66,17 +67,20 @@ window.IMAGES = [
   img('F3', 'Heart', 16, 16, '#e74c3c', { art: 'heart' }),
 ];
 
-// ---- AUDIO (optional; silent if missing) → assets/audio/<CODE>.mp3
+// ---- AUDIO (optional) → assets/audio/<CODE>.mp3 replaces the default.
+// def: built-in default from Kenney "Digital Audio" (CC0) in assets/audio/default/
 window.AUDIO = [
-  { code: 'S1', desc: 'Jump' },
-  { code: 'S2', desc: 'Attack swing' },
-  { code: 'S3', desc: 'Hit enemy' },
-  { code: 'S4', desc: 'Dhruv hurt' },
-  { code: 'S5', desc: 'Dhruv dies' },
-  { code: 'S6', desc: 'Boss power-up' },
+  { code: 'S1', desc: 'Jump', def: true },
+  { code: 'S2', desc: 'Attack swing', def: true },
+  { code: 'S3', desc: 'Hit enemy', def: true },
+  { code: 'S4', desc: 'Dhruv hurt', def: true },
+  { code: 'S5', desc: 'Dhruv dies', def: true },
+  { code: 'S6', desc: 'Boss power-up', def: true },
   { code: 'S7', desc: 'Level music (loops)' },
   { code: 'S8', desc: 'Boss music (loops)' },
-  { code: 'S9', desc: 'Boss defeated' },
-  { code: 'S10', desc: 'New weapon get' },
+  { code: 'S9', desc: 'Boss defeated', def: true },
+  { code: 'S10', desc: 'New weapon get', def: true },
   { code: 'S11', desc: 'Map music (loops)' },
+  { code: 'S12', desc: 'Clink (hit something unkillable)', def: true },
+  { code: 'S13', desc: 'Menu move / select', def: true },
 ];

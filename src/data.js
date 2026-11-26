@@ -32,7 +32,7 @@ window.ENEMIES = {
 window.BOSSES = {
   yeti: {
     name: 'YETI', sprite: 'G1', ai: 'melee', speed: 90, range: 64, windup: 450, cd: 1200,
-    mini: { hp: 3, dmg: 3 }, boss: { hp: 12, dmg: 2 },
+    mini: { hp: 3, dmg: 1 }, boss: { hp: 12, dmg: 2 },
     prop: 'P1', powerText: '*eats chicken*',
     phase2: { speed: 150, windup: 260, dmg: 3, special: 'slam', specialCd: 4000 },
   },
