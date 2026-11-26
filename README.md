@@ -1,17 +1,22 @@
 # Dhruvkaat
 
-A side-scrolling platformer starring me and my friends. Built with Phaser 3 (bundled in `lib/`, no install needed).
+A 2D action game set at IIT Bawana: Dhruv fights his way through 6 campus locations, beats a friend-boss in each, and takes their weapon.
 
 ## Run
 ```bash
-python3 -m http.server 8000
+python3 -m http.server 8000 --bind 127.0.0.1
 ```
-Then open http://localhost:8000. Opening `index.html` directly won't work, because browsers block local file loading.
+Then open http://localhost:8000 (from inside this folder).
 
-**Controls:** ←/→ or A/D to move · Space/↑/W to jump · ↓/S to duck · Shift to dash (dash character)
+## Controls
+A/D move · W/Space jump (double jump) · S duck · Shift dash (invincible) · J/X or click attack · Q/E or 1-7 switch weapon · Esc back to map
+
+Progress (cleared levels, weapons) is saved in the browser.
 
 ## Structure
-- `src/assets.js` holds every personalizable image, sound, name and ability
-- `src/levels.js` holds the level layouts (grid of characters)
-- `src/main.js` holds the game logic
-- `ASSETS.md` is the checklist of everything to provide
+- `src/data.js`: all tunable numbers: player, weapons, enemies, bosses, levels, map path
+- `src/assets.js`: every image/sound code
+- `src/art.js`: built-in art and placeholders
+- `src/main.js`: game engine (map, level, combat, bosses)
+- `ASSETS.md`: checklist of everything to provide
+- `art-src/`: source images and scripts that build sprites

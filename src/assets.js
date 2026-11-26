@@ -1,83 +1,82 @@
 // ============================================================
-//  ASSET MANIFEST — every personalizable thing has a #CODE.
-//  Drop a file at the listed path and it replaces the placeholder
-//  automatically. Missing files show a colored box with the code.
+//  ASSET MANIFEST: every personalizable thing has a #CODE.
+//  Drop a file at assets/images/<CODE>.png (or the listed ext) and it
+//  replaces the placeholder automatically. Missing files show a labeled box.
 //  Full checklist: ASSETS.md
 // ============================================================
+const img = (code, name, w, h, color, extra = {}) => ({ code, name, w, h, color, ...extra });
 
-// ---- IMAGES ------------------------------------------------
-// w/h = size the game draws it at (your PNG can be any size; keep the same aspect ratio).
 window.IMAGES = [
-  // A = Playable character
-  { code: 'A1', w: 96, h: 128, color: '#e74c3c', desc: 'Dhruv (player) spritesheet: idle 0-2, run 3-6, jump 7-9',
-    sheet: { frameWidth: 96, frameHeight: 128 } },
+  // A: Player
+  img('A1', 'Dhruv', 96, 128, '#e74c3c', { sheet: { frameWidth: 96, frameHeight: 128 } }),
 
-  // B = Mini enemies (planned behavior in desc)
-  { code: 'B1', w: 32, h: 32, color: '#8e5a2b', desc: 'Mini enemy 1: walker (built)' },
-  { code: 'B2', w: 32, h: 32, color: '#c0392b', desc: 'Mini enemy 2: flyer (built)' },
-  { code: 'B3', w: 32, h: 32, color: '#d35400', desc: 'Mini enemy 3: hopper (planned)' },
-  { code: 'B4', w: 32, h: 32, color: '#7d3c98', desc: 'Mini enemy 4: shooter, fires H1 at head height (planned)' },
-  { code: 'B5', w: 32, h: 32, color: '#a93226', desc: 'Mini enemy 5: charger, rushes when it sees you (planned)' },
-  { code: 'B6', w: 32, h: 32, color: '#566573', desc: 'Mini enemy 6: spiky, cannot be stomped (planned)' },
+  // W: Weapon icons (also used as the swing / thrown sprite)
+  img('W0', 'Fists', 32, 32, '#d0a080'),
+  img('W1', 'Boxing Gloves', 32, 32, '#c0392b'),
+  img('W2', 'Belt', 32, 32, '#6e4b2a'),
+  img('W3', 'Sabal', 32, 32, '#7f8c8d'),
+  img('W4', 'Pet Cat', 32, 32, '#f0b27a'),
+  img('W5', 'Fairy Healer', 32, 32, '#a3e4d7'),
+  img('W6', 'Hammer', 32, 32, '#95a5a6'),
 
-  // G = Main bosses (planned)
-  { code: 'G1', w: 96, h: 96, color: '#922b21', desc: 'Boss 1' },
-  { code: 'G2', w: 96, h: 96, color: '#1f618d', desc: 'Boss 2' },
-  { code: 'G3', w: 96, h: 96, color: '#196f3d', desc: 'Boss 3' },
-  { code: 'G4', w: 96, h: 96, color: '#7e5109', desc: 'Boss 4' },
-  { code: 'G5', w: 96, h: 96, color: '#5b2c6f', desc: 'Boss 5' },
-  { code: 'G6', w: 96, h: 96, color: '#17202a', desc: 'Boss 6 (final)' },
+  // G: Bosses (also appear as mini enemies in their own level)
+  img('G1', 'YETI', 96, 128, '#d5dbdb'),
+  img('G2', 'CHOCO', 96, 128, '#6e2c00'),
+  img('G3', 'BLDC', 96, 128, '#1f618d'),
+  img('G4', 'MEOW', 96, 128, '#7d3c98'),
+  img('G5', 'THARKI', 96, 128, '#b03a2e'),
+  img('G6', 'TYAGI', 96, 128, '#1e8449'),
 
-  // H = Projectiles (planned)
-  { code: 'H1', w: 16, h: 16, color: '#ff00ff', desc: 'Mini enemy projectile' },
-  { code: 'H2', w: 24, h: 24, color: '#ff4500', desc: 'Boss projectile' },
+  // P: Boss power-up props
+  img('P1', 'Chicken', 40, 40, '#e59866'),
+  img('P2', 'Beer (Choco)', 40, 40, '#f4d03f'),
+  img('P3', 'Sabal summon', 40, 40, '#85c1e9'),
+  img('P4', 'White Monster', 40, 40, '#f8f9f9'),
+  img('P5', 'Tinder phone', 40, 40, '#ff5864'),
+  img('P6', 'Beer (Tyagi)', 40, 40, '#f4d03f'),
 
-  // C = Items
-  { code: 'C1', w: 20, h: 20, color: '#f1c40f', desc: 'Coin / collectible' },
-  { code: 'C2', w: 28, h: 28, color: '#e67e22', desc: 'Power-up (makes you big)' },
-  { code: 'C3', w: 32, h: 96, color: '#1abc9c', desc: 'Level goal / finish flag' },
-  { code: 'C4', w: 28, h: 28, color: '#27ae60', desc: 'Extra life (planned)' },
+  // M: Minions & projectiles
+  img('M1', 'Cat', 32, 24, '#a569bd'),
+  img('M2', 'Giant cat mount', 128, 80, '#6c3483'),
+  img('M3', 'Female warrior', 40, 56, '#cb4335'),
+  img('M4', 'Fairy (Tharki)', 28, 28, '#f5b7b1'),
+  img('M5', 'Thrown hammer', 24, 24, '#7b7d7d'),
 
-  // D = Tiles (32x32)
-  { code: 'D1', w: 32, h: 32, color: '#6d4c2f', desc: 'Grass ground (top layer)', art: 'grass' },
-  { code: 'D5', w: 32, h: 32, color: '#6d4c2f', desc: 'Dirt ground (under grass)', art: 'dirt' },
-  { code: 'D2', w: 32, h: 32, color: '#b5651d', desc: 'Breakable brick' },
-  { code: 'D3', w: 32, h: 32, color: '#f39c12', desc: 'Surprise block (unused)' },
-  { code: 'D4', w: 32, h: 32, color: '#7f6a4f', desc: 'Surprise block (used)' },
+  // N: Regular enemies (every level)
+  img('N1', 'Bobba', 40, 60, '#5d6d7e'),
+  img('N2', 'Monkey', 32, 32, '#8d6e63'),
+  img('N3', 'Gayansh', 40, 60, '#e91e63'),
+  img('N4', 'Aunty', 40, 60, '#16a085'),
 
-  // E = Backgrounds
-  { code: 'E1', w: 800, h: 480, color: '#5dade2', desc: 'Sky background', art: 'sky' },
-  { code: 'E2', w: 800, h: 240, color: '#ffffff', desc: 'Clouds layer (scrolls slowly)', art: 'clouds' },
+  // L: Level backgrounds (built-in semi-dark art until replaced)
+  img('L1', 'Library', 800, 480, '#2c3e50', { art: 'dusk', variant: 0 }),
+  img('L2', 'Sports Complex', 800, 480, '#2c3e50', { art: 'dusk', variant: 1 }),
+  img('L3', 'Deltech', 800, 480, '#2c3e50', { art: 'dusk', variant: 2 }),
+  img('L4', 'Design Dept', 800, 480, '#2c3e50', { art: 'dusk', variant: 3 }),
+  img('L5', 'Girls Hostel', 800, 480, '#2c3e50', { art: 'dusk', variant: 4 }),
+  img('L6', 'Aryabhatta Hostel', 800, 480, '#2c3e50', { art: 'dusk', variant: 5 }),
 
-  // L = Per-level background (optional; falls back to E1 sky) (planned)
-  ...[1, 2, 3, 4, 5, 6, 7].map(n => ({ code: 'L' + n, w: 800, h: 480, color: '#5dade2', desc: `Level ${n} background`, optional: true })),
+  // D: Ground
+  img('D1', 'Ground top', 32, 32, '#3b3a4a', { art: 'groundTop' }),
+  img('D5', 'Ground fill', 32, 32, '#2b2a36', { art: 'groundFill' }),
 
-  // F = UI
-  { code: 'F1', w: 400, h: 100, color: '#34495e', desc: 'Game title logo' },
+  // F: UI
+  img('F1', 'Title logo', 400, 100, '#34495e'),
+  img('F2', 'Campus map', 1672, 941, '#27ae60', { ext: 'jpg' }),
+  img('F3', 'Heart', 16, 16, '#e74c3c', { art: 'heart' }),
 ];
 
-// ---- AUDIO (optional; silent if missing) -------------------
+// ---- AUDIO (optional; silent if missing) → assets/audio/<CODE>.mp3
 window.AUDIO = [
-  { code: 'S1', desc: 'Jump sound' },
-  { code: 'S2', desc: 'Coin sound' },
-  { code: 'S3', desc: 'Power-up sound' },
-  { code: 'S4', desc: 'Stomp enemy sound' },
-  { code: 'S5', desc: 'Hurt / death sound' },
-  { code: 'S6', desc: 'Level complete sound' },
-  { code: 'S7', desc: 'Background music (loops)' },
-  { code: 'S8', desc: 'Boss fight music (planned)' },
-  { code: 'S9', desc: 'Boss hit sound (planned)' },
-  { code: 'S10', desc: 'Boss defeated sound (planned)' },
+  { code: 'S1', desc: 'Jump' },
+  { code: 'S2', desc: 'Attack swing' },
+  { code: 'S3', desc: 'Hit enemy' },
+  { code: 'S4', desc: 'Dhruv hurt' },
+  { code: 'S5', desc: 'Dhruv dies' },
+  { code: 'S6', desc: 'Boss power-up' },
+  { code: 'S7', desc: 'Level music (loops)' },
+  { code: 'S8', desc: 'Boss music (loops)' },
+  { code: 'S9', desc: 'Boss defeated' },
+  { code: 'S10', desc: 'New weapon get' },
+  { code: 'S11', desc: 'Map music (loops)' },
 ];
-
-// ---- TEXT / GAMEPLAY ---------------------------------------
-// #T codes = text you give me. ability: doubleJump | dash | highJump | float
-window.CHARACTERS = [
-  { sprite: 'A1', name: 'Dhruv', ability: 'doubleJump', speed: 210, jump: 560, tagline: '#T5 Can jump twice' },
-];
-
-window.TEXT = {
-  title: 'Dhruvkaat #T9',
-  winMessage: 'Level clear! #T10',
-  gameOverMessage: 'Game over! #T11',
-};

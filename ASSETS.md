@@ -1,92 +1,83 @@
 # Placeholder checklist
 
-Every placeholder in the game shows its code (e.g. `#B1`). Give me the file or text for a code and it replaces the placeholder. Missing items stay as colored boxes, so the game always runs.
+Every placeholder in the game shows its code (e.g. `#G1`). Drop a file at `assets/images/<CODE>.png` (transparent PNG, any size with the same aspect ratio) and it replaces the placeholder automatically. Tunable numbers (HP, damage, speed, cooldowns) live in `src/data.js`.
 
-Status: ✅ done · 🎨 has built-in art (replace if you want) · ⬜ needed · 🔧 mechanic not built yet
+✅ done · 🎨 built-in art (replace if you want) · ⬜ needed
 
 ## A: Player
-| Code | What | Size | Status |
+| Code | What | Size | |
 |---|---|---|---|
-| A1 | Dhruv: 11-frame spritesheet (idle 0-2, run 3-6, jump 7-9, duck 10) | 96×128 per frame | ✅ |
+| A1 | Dhruv: spritesheet (idle 0-2, run 3-6, jump 7-9, duck 10) | 96×128 / frame | ✅ |
+| A1 (more frames) | **Needed for combat:** attack swing, hurt, dash. Send them and I'll extend the sheet | 96×128 | ⬜ |
 
-## B: Mini enemies (6)
-| Code | What | Size | Status |
+## G: Bosses (also appear as mini enemies in their own level)
+| Code | Boss | Level | Size | |
+|---|---|---|---|---|
+| G1 | YETI | 1 Library | 96×128 | ⬜ |
+| G2 | CHOCO | 2 Sports Complex | 96×128 | ⬜ |
+| G3 | BLDC | 3 Deltech | 96×128 | ⬜ |
+| G4 | MEOW | 4 Design Dept | 96×128 | ⬜ |
+| G5 | THARKI | 5 Girls Hostel | 96×128 | ⬜ |
+| G6 | TYAGI | 6 Aryabhatta Hostel | 96×128 | ⬜ |
+
+Later: one spritesheet per boss (idle, walk, attack, hurt, power-up animation, phase-2 look).
+
+## P: Boss power-up props (shown during the power-up animation)
+| Code | What | Size | |
 |---|---|---|---|
-| B1 | Walker: patrols the ground | 32×32 | ⬜ art |
-| B2 | Flyer: bobs in the air | 32×32 | ⬜ art |
-| B3 | Hopper: jumps around | 32×32 | ⬜ art · 🔧 |
-| B4 | Shooter: fires at head height (this is what duck is for) | 32×32 | ⬜ art · 🔧 |
-| B5 | Charger: rushes you when it sees you | 32×32 | ⬜ art · 🔧 |
-| B6 | Spiky: can't be stomped, only avoided | 32×32 | ⬜ art · 🔧 |
+| P1 | Chicken (Yeti) | 40×40 | ⬜ |
+| P2 | Beer (Choco) | 40×40 | ⬜ |
+| P3 | Sabal summon (BLDC) | 40×40 | ⬜ |
+| P4 | White Monster (Meow) | 40×40 | ⬜ |
+| P5 | Tinder phone (Tharki) | 40×40 | ⬜ |
+| P6 | Beer (Tyagi) | 40×40 | ⬜ |
 
-The behaviors are my suggestions. Tell me if a friend should do something else.
-
-## G: Main bosses (6)
-| Code | What | Size | Status |
+## M: Minions & projectiles
+| Code | What | Size | |
 |---|---|---|---|
-| G1–G5 | Bosses 1–5 | 96×96 | ⬜ art · 🔧 |
-| G6 | Final boss | 96×96 | ⬜ art · 🔧 |
+| M1 | Cat (Meow's minion) | 32×24 | ⬜ |
+| M2 | Giant cat that Meow rides (phase 2) | 128×80 | ⬜ |
+| M3 | Female warrior (Tharki) | 40×56 | ⬜ |
+| M4 | Fairy that heals Tharki | 28×28 | ⬜ |
+| M5 | Hammer Tyagi throws | 24×24 | ⬜ |
 
-For each boss I need: **who it is, 2–3 attacks, and how Dhruv damages it.**
+## N: Regular enemies (every level)
+| Code | Who | What they do | Size | |
+|---|---|---|---|---|
+| N1 | Bobba | Second half of the level. Touch sends you back to the start once, then all Bobbas vanish | 40×60 | ⬜ |
+| N2 | Monkey | Hits you and steals your equipped weapon. Kill it within 9s or the weapon is gone until you beat that boss again | 32×32 | ⬜ |
+| N3 | Gayansh | Pulls you in, hugs (1 dmg/sec). Mash attack/arrows to escape | 40×60 | ⬜ |
+| N4 | Aunty | Can't be killed; hurts on touch, says a catchphrase when you're near | 40×60 | ⬜ |
 
-## H: Projectiles
-| Code | What | Size | Status |
+## W: Weapons (icons; also drawn on the swing / as the thrown hammer)
+| Code | Weapon | From | How it plays | |
+|---|---|---|---|---|
+| W0 | Fists | start | Weak, short | ⬜ |
+| W1 | Boxing Gloves | Yeti | Fast combo, short | ⬜ |
+| W2 | Belt | Choco | Long reach | ⬜ |
+| W3 | Sabal | BLDC | Slow, 3 damage, big knockback | ⬜ |
+| W4 | Pet Cat | Meow | Cat follows you and bites enemies | ⬜ |
+| W5 | Fairy Healer | Tharki | Heals 1 heart every 5s | ⬜ |
+| W6 | Hammer | Tyagi | Thrown, comes back | ⬜ |
+
+## L / D / F: World & UI
+| Code | What | Size | |
 |---|---|---|---|
-| H1 | Mini-enemy projectile | 16×16 | ⬜ · 🔧 |
-| H2 | Boss projectile | 24×24 | ⬜ · 🔧 |
-
-## C: Items
-| Code | What | Size | Status |
-|---|---|---|---|
-| C1 | Coin / collectible | 20×20 | ⬜ |
-| C2 | Power-up (makes Dhruv big and gives one extra hit) | 28×28 | ⬜ |
-| C3 | Finish flag | 32×96 | ⬜ |
-| C4 | Extra life | 28×28 | ⬜ · 🔧 |
-
-## D: Tiles
-| Code | What | Size | Status |
-|---|---|---|---|
-| D1 | Grass ground | 32×32 | 🎨 |
-| D5 | Dirt ground | 32×32 | 🎨 |
-| D2 | Breakable brick | 32×32 | ⬜ |
-| D3 | Surprise block | 32×32 | ⬜ |
-| D4 | Used surprise block | 32×32 | ⬜ |
-
-## E / L: Backgrounds
-| Code | What | Size | Status |
-|---|---|---|---|
-| E1 | Default sky | 800×480 | 🎨 |
-| E2 | Clouds layer (transparent) | 800×240 | 🎨 |
-| L1–L7 | One background per level (optional, falls back to E1) | 800×480 | ⬜ optional · 🔧 |
-
-## F: UI
-| Code | What | Size | Status |
-|---|---|---|---|
+| L1–L6 | Level backgrounds (Library … Aryabhatta) | 800×480 | 🎨 |
+| D1 / D5 | Ground top / ground fill tiles | 32×32 | 🎨 |
 | F1 | Title logo | 400×100 | ⬜ |
+| F2 | Campus map (`F2.jpg`) | 1672×941 | ✅ |
+| F3 | Heart icon | 16×16 | 🎨 |
 
 ## S: Audio → `assets/audio/<CODE>.mp3` (all optional)
-| Code | What |
-|---|---|
-| S1 | Jump |
-| S2 | Coin |
-| S3 | Power-up |
-| S4 | Stomp |
-| S5 | Hurt / death |
-| S6 | Level complete |
-| S7 | Level music (loops) |
-| S8 | Boss music 🔧 |
-| S9 | Boss hit 🔧 |
-| S10 | Boss defeated 🔧 |
+S1 jump · S2 attack swing · S3 hit enemy · S4 Dhruv hurt · S5 Dhruv dies · S6 boss power-up · S7 level music · S8 boss music · S9 boss defeated · S10 new weapon · S11 map music
 
 ## T: Text (just tell me)
 | Code | What |
 |---|---|
-| T5 | Dhruv's tagline |
-| T9 | Game title |
-| T10 | Level-clear message |
-| T11 | Game-over message |
-| T12–T18 | Names of levels 1–7 |
-| T19–T24 | Names of bosses 1–6 |
-| T25–T30 | Names of mini enemies 1–6 |
+| T9 | Game title (now "DHRUVKAAT") |
+| T11 | Game-over line (now "Dhruv fainted") |
+| T31–T33 | Aunty's catchphrases |
 
-Image files go in `assets/images/<CODE>.png` (transparent PNG; larger is fine if the aspect ratio matches).
+## Level 7
+Not designed yet (shown as `?` at OAT on the map).
