@@ -8,11 +8,8 @@
 // ---- IMAGES ------------------------------------------------
 // w/h = size the game draws it at (your PNG can be any size; keep the same aspect ratio).
 window.IMAGES = [
-  // A = Playable characters (your friends)
-  { code: 'A1', w: 32, h: 48, color: '#e74c3c', desc: 'Friend 1 character' },
-  { code: 'A2', w: 32, h: 48, color: '#3498db', desc: 'Friend 2 character' },
-  { code: 'A3', w: 32, h: 48, color: '#2ecc71', desc: 'Friend 3 character' },
-  { code: 'A4', w: 32, h: 48, color: '#9b59b6', desc: 'Friend 4 character' },
+  // A = Playable character
+  { code: 'A1', w: 32, h: 48, color: '#e74c3c', desc: 'Dhruv (player)' },
 
   // B = Enemies
   { code: 'B1', w: 32, h: 32, color: '#8e5a2b', desc: 'Walking enemy' },
@@ -50,10 +47,7 @@ window.AUDIO = [
 // ---- TEXT / GAMEPLAY ---------------------------------------
 // #T codes = text you give me. ability: doubleJump | dash | highJump | float
 window.CHARACTERS = [
-  { sprite: 'A1', name: 'Friend 1 #T1', ability: 'doubleJump', speed: 200, jump: 480, tagline: '#T5 Can jump twice' },
-  { sprite: 'A2', name: 'Friend 2 #T2', ability: 'dash',       speed: 220, jump: 480, tagline: '#T6 SHIFT to dash' },
-  { sprite: 'A3', name: 'Friend 3 #T3', ability: 'highJump',   speed: 180, jump: 600, tagline: '#T7 Jumps really high' },
-  { sprite: 'A4', name: 'Friend 4 #T4', ability: 'float',      speed: 200, jump: 480, tagline: '#T8 Hold jump to float' },
+  { sprite: 'A1', name: 'Dhruv', ability: 'doubleJump', speed: 210, jump: 560, tagline: '#T5 Can jump twice' },
 ];
 
 window.TEXT = {

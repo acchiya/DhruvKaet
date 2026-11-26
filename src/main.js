@@ -33,6 +33,10 @@ function sfx(scene, code, cfg) { if (scene.cache.audio.exists(code)) scene.sound
 class Select extends Phaser.Scene {
   constructor() { super('Select'); }
   create() {
+    if (CHARACTERS.length === 1) {
+      this.scene.start('Game', { char: CHARACTERS[0], level: 0 });
+      return;
+    }
     this.cameras.main.setBackgroundColor('#1b1b2f');
     this.add.image(VIEW_W / 2, 70, 'F1').setDisplaySize(400, 100);
     this.add.text(VIEW_W / 2, 140, 'Choose your player  (← → / click, ENTER to start)',

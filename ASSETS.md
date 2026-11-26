@@ -6,10 +6,7 @@ Every placeholder in the game shows its code (e.g. `#A1`). Give me the file or t
 
 | Code | What | Draw size (px) | Notes |
 |---|---|---|---|
-| A1 | Friend 1 character | 32×48 | Facing **right**, full body, transparent background |
-| A2 | Friend 2 character | 32×48 | same |
-| A3 | Friend 3 character | 32×48 | same |
-| A4 | Friend 4 character | 32×48 | same |
+| A1 | Dhruv (player) | 32×48 | Facing **right**, full body, transparent background |
 | B1 | Walking enemy | 32×32 | Facing **left** |
 | B2 | Flying enemy | 32×32 | Facing left |
 | C1 | Coin / collectible | 20×20 | Doesn't have to be a coin: a face, a snack, anything |
@@ -42,14 +39,13 @@ Voice clips of your friends work well here.
 
 | Code | What |
 |---|---|
-| T1–T4 | Friend 1–4 names |
-| T5–T8 | One-line tagline per friend |
+| T5 | Dhruv's tagline (optional) |
 | T9 | Game title |
 | T10 | Win message |
 | T11 | Game-over message |
 
 ## Gameplay decisions (tell me)
 
-- Ability per friend. Built in: `doubleJump`, `dash`, `highJump`, `float`. Ask for new ones.
+- Dhruv's ability. Built in: `doubleJump` (current), `dash`, `highJump`, `float`.
 - What the enemies are and what the power-up is (inside jokes go here).
-- How many friends (currently 4) and how many levels.
+- How many levels.
