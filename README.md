@@ -8,7 +8,7 @@ python3 -m http.server 8000
 ```
 Then open http://localhost:8000. Opening `index.html` directly won't work, because browsers block local file loading.
 
-**Controls:** ←/→ or A/D to move · Space/↑/W to jump · Shift to dash (dash character)
+**Controls:** ←/→ or A/D to move · Space/↑/W to jump · ↓/S to duck · Shift to dash (dash character)
 
 ## Structure
 - `src/assets.js` holds every personalizable image, sound, name and ability

@@ -1,6 +1,6 @@
 # Builds assets/images/A1.png (spritesheet) from art-src/dhruv_sheet.webp:
 # removes white background + shadows, slices frames, enlarges the head (HEAD_SCALE).
-# Frame order: idle 0-2, run 3-6, jump 7-9.
+# Frame order: idle 0-2, run 3-6, jump 7-9, duck 10.
 import os, json
 import numpy as np
 from PIL import Image
@@ -57,9 +57,18 @@ for sy, sx in boxes:
     out.alpha_composite(body, (ox, body_off))
     out.alpha_composite(big, (int(ox + cx - big.width / 2), 8))
     frames.append(out.crop(out.getbbox()))
+    if len(frames) == 1:  # build a duck pose from the first idle frame: squash body, lower head
+        bb = body.crop((0, neck - 4, body.width, body.height))
+        sq = bb.resize((int(bb.width * 1.12), int(bb.height * 0.5)), Image.LANCZOS)
+        dw = max(sq.width, big.width) + 8
+        duck = Image.new('RGBA', (dw, big.height - 6 + sq.height))
+        duck.alpha_composite(sq, ((dw - sq.width) // 2, big.height - 6))
+        duck.alpha_composite(big, (int((dw - sq.width) // 2 + cx * 1.12 - big.width / 2), 0))
+        duck_frame = duck.crop(duck.getbbox())
 
+frames.append(duck_frame)  # frame 10 = duck
 FW, FH = 96, 128  # cell size in output sheet
-fw_src = max(f.width for f in frames); fh_src = max(f.height for f in frames)
+fw_src = max(f.width for f in frames); fh_src = max(f.height for f in frames[:-1])
 scale = min(FW / fw_src, FH / fh_src)
 sheet = Image.new('RGBA', (FW * len(frames), FH))
 for i, f in enumerate(frames):

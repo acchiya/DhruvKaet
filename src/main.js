@@ -32,22 +32,29 @@ function makePlaceholder(scene, a) {
 
 // Built-in default art (used until you drop in your own PNG for that code)
 function rng(seed) { return () => (seed = (seed * 16807) % 2147483647) / 2147483647; }
-function dirtPixels(ctx, w, h, y0, r) {
-  ctx.fillStyle = '#8b5a2b'; ctx.fillRect(0, y0, w, h - y0);
-  for (let i = 0; i < 40; i++) {
-    ctx.fillStyle = r() < 0.5 ? '#7a4e24' : '#9c6a37';
-    ctx.fillRect(Math.floor(r() * w / 2) * 2, y0 + Math.floor(r() * (h - y0) / 2) * 2, 2, 2);
-  }
-}
 const ART = {
   grass(ctx, w, h) {
-    const r = rng(7); dirtPixels(ctx, w, h, 0, r);
-    ctx.fillStyle = '#4caf50'; ctx.fillRect(0, 0, w, 8);
-    ctx.fillStyle = '#7bd36b'; ctx.fillRect(0, 0, w, 3);
-    ctx.fillStyle = '#3e9142';
-    for (let x = 0; x < w; x += 4) ctx.fillRect(x, 8, 2, 2 + Math.floor(r() * 4));
+    ART.dirt(ctx, w, h);
+    ctx.fillStyle = '#2e7d32'; ctx.fillRect(0, 0, w, 11);   // grass cap
+    ctx.fillStyle = '#4caf50'; ctx.fillRect(1, 1, w - 2, 8);
+    ctx.fillStyle = '#81d46a'; ctx.fillRect(1, 1, w - 2, 3);
+    ctx.fillStyle = '#4caf50';                              // drips over the edge
+    for (const x of [3, 11, 19, 26]) ctx.fillRect(x, 9, 4, 4);
+    ctx.fillStyle = '#2e7d32';
+    for (const x of [3, 11, 19, 26]) ctx.fillRect(x, 13, 4, 1);
   },
-  dirt(ctx, w, h) { dirtPixels(ctx, w, h, 0, rng(13)); },
+  dirt(ctx, w, h) {
+    // clear tile: dark outline, light top-left bevel, dark bottom-right bevel
+    ctx.fillStyle = '#4a2c12'; ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = '#8b5a2b'; ctx.fillRect(1, 1, w - 2, h - 2);
+    ctx.fillStyle = '#a8743f'; ctx.fillRect(1, 1, w - 2, 2); ctx.fillRect(1, 1, 2, h - 2);
+    ctx.fillStyle = '#6b4220'; ctx.fillRect(1, h - 3, w - 2, 2); ctx.fillRect(w - 3, 1, 2, h - 2);
+    const r = rng(13);
+    for (let i = 0; i < 10; i++) {
+      ctx.fillStyle = r() < 0.5 ? '#6b4220' : '#a8743f';
+      ctx.fillRect(4 + Math.floor(r() * 12) * 2, 4 + Math.floor(r() * 12) * 2, 2, 2);
+    }
+  },
   sky(ctx, w, h) {
     const g = ctx.createLinearGradient(0, 0, 0, h);
     g.addColorStop(0, '#4a9fe8'); g.addColorStop(1, '#bfe6ff');
@@ -148,8 +155,9 @@ class Game extends Phaser.Scene {
       this.anims.create({ key: 'run', frames: this.anims.generateFrameNumbers(k, { start: 3, end: 6 }), frameRate: 10, repeat: -1 });
       this.anims.create({ key: 'jumpUp', frames: [{ key: k, frame: 8 }] });
       this.anims.create({ key: 'fall', frames: [{ key: k, frame: 9 }] });
+      if (this.textures.get(k).frameTotal > 11) this.anims.create({ key: 'duck', frames: [{ key: k, frame: 10 }] });
     }
-    this.big = false; this.invulnUntil = 0; this.jumps = 0; this.dashUntil = 0; this.dashReady = 0; this.done = false;
+    this.big = false; this.ducking = false; this.invulnUntil = 0; this.jumps = 0; this.dashUntil = 0; this.dashReady = 0; this.done = false;
 
     this.physics.add.collider(this.player, this.solids, (p, b) => this.hitBlock(b));
     this.physics.add.collider(this.enemies, this.solids);
@@ -162,7 +170,7 @@ class Game extends Phaser.Scene {
     this.cameras.main.setBounds(0, 0, W, H).startFollow(this.player, true, 0.15, 0.15);
 
     const k = this.input.keyboard;
-    this.keys = k.addKeys('LEFT,RIGHT,UP,SPACE,SHIFT,A,D,W');
+    this.keys = k.addKeys('LEFT,RIGHT,UP,DOWN,SPACE,SHIFT,A,D,W,S');
 
     this.coinCount = this.registry.get('coins') || 0;
     this.hud = this.add.text(10, 10, '', { fontFamily: 'monospace', fontSize: 18, color: '#fff', stroke: '#000', strokeThickness: 4 }).setScrollFactor(0).setDepth(10);
@@ -177,7 +185,8 @@ class Game extends Phaser.Scene {
     const p = this.player;
     p.setDisplaySize(w, h);
     const fw = p.frame.realWidth, fh = p.frame.realHeight;
-    p.body.setSize(fw * 0.5, fh * 0.92).setOffset(fw * 0.25, fh * 0.08);
+    const top = this.ducking ? 0.45 : 0.08;  // ducking = shorter hitbox
+    p.body.setSize(fw * 0.5, fh * (1 - top)).setOffset(fw * 0.25, fh * top);
   }
 
   tile(x, y, key, type) {
@@ -282,8 +291,13 @@ class Game extends Phaser.Scene {
     const onGround = p.body.blocked.down;
     if (onGround) this.jumps = 0;
 
+    // Ducking (on ground, hold DOWN/S): stop and shrink hitbox
+    const wantDuck = onGround && (k.DOWN.isDown || k.S.isDown);
+    if (wantDuck !== this.ducking) { this.ducking = wantDuck; this.setPlayerSize(this.big); }
+
     // Movement / dash
     if (time < this.dashUntil) { /* keep dash velocity */ }
+    else if (this.ducking) p.setVelocityX(0);
     else if (left) { p.setVelocityX(-c.speed); p.setFlipX(true); }
     else if (right) { p.setVelocityX(c.speed); p.setFlipX(false); }
     else p.setVelocityX(0);
@@ -294,13 +308,14 @@ class Game extends Phaser.Scene {
     }
 
     // Jumping
-    if (jumpPressed) {
+    if (jumpPressed && !this.ducking) {
       if (onGround) { p.setVelocityY(-c.jump); this.jumps = 1; sfx(this, 'S1'); }
       else if (c.ability === 'doubleJump' && this.jumps < 2) { p.setVelocityY(-c.jump * 0.85); this.jumps = 2; sfx(this, 'S1'); }
     }
     if (!jumpHeld && p.body.velocity.y < -150) p.setVelocityY(-150); // variable jump height
     if (this.animated) {
-      if (!p.body.blocked.down) p.anims.play(p.body.velocity.y < 0 ? 'jumpUp' : 'fall', true);
+      if (this.ducking && this.anims.exists('duck')) p.anims.play('duck', true);
+      else if (!p.body.blocked.down) p.anims.play(p.body.velocity.y < 0 ? 'jumpUp' : 'fall', true);
       else if (Math.abs(p.body.velocity.x) > 10) p.anims.play('run', true);
       else p.anims.play('idle', true);
     }
