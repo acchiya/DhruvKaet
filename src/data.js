@@ -2,7 +2,7 @@
 //  GAME DATA: tweak numbers here, no engine code needed.
 // ============================================================
 
-window.PLAYER = { hp: 10, speed: 220, jump: 520, doubleJump: true, dashSpeed: 560, dashMs: 180, dashCd: 650 };
+window.PLAYER = { hp: 7, speed: 220, jump: 520, doubleJump: true, dashSpeed: 560, dashMs: 180, dashCd: 650 };
 
 // kind: melee | throw.  companion: cat | fairy (helper that follows Dhruv)
 window.WEAPONS = {
