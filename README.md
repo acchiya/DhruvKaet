@@ -18,14 +18,16 @@ Then open http://localhost:8000 (from inside this folder).
 | Drop through a ledge | S + jump | Down + A |
 | Attack | J / K / X / click | X (Square) |
 | Dash (invincible) | Shift | B (Circle) / RT |
-| Switch weapon | Q / E, or 1-7 | LB / RB |
+| Switch weapon | Q / E, or 1-5 | LB / RB |
 | Pause (Resume / Restart / Quit) | Esc / P | Start |
 
 Gamepad: press any button once after plugging in. Unplugging it mid-level pauses the game.
 
+Weapons: Fists, Boxing Gloves, Belt, Sabal, Hammer. The Pet Cat and Fairy Healer are companions: once won they're always with you.
+
 Falling into a pit costs 1 heart and puts you back on the last safe ground.
 
-**Test mode:** press **T** on the campus map (or open `http://localhost:8000/?test`). Every level opens, Dhruv has every weapon, keys **1-6** (top row or numpad) jump straight into a level, and nothing is saved. Without test mode, 1-6 open any level you have already unlocked. Press T again to go back to your real progress.
+**Test mode:** press **T** on the campus map (or open `http://localhost:8000/?test`). Every level opens, Dhruv has every weapon and both companions, keys **1-6** (top row or numpad) jump straight into a level, and nothing is saved. Without test mode, 1-6 open any level you have already unlocked. Press T again to go back to your real progress.
 
 Progress (cleared levels, weapons) is saved in the browser.
 

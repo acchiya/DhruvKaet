@@ -155,7 +155,7 @@ class MapScene extends Phaser.Scene {
     if (instant) this.dhruv.setPosition(s.x, s.y - 8);
     else this.tweens.add({ targets: this.dhruv, x: s.x, y: s.y - 8, duration: 300 });
     const L = LEVELS[i], B = BOSSES[L.boss], save = this.registry.get('save');
-    this.info.setText(`Level ${i + 1}: ${L.name}  ·  Boss: ${B.name}  ·  Reward: ${WEAPONS[L.reward].name}` +
+    this.info.setText(`Level ${i + 1}: ${L.name}  ·  Boss: ${B.name}  ·  Reward: ${itemInfo(L.reward).name}` +
       (save.cleared.includes(i) ? '  ✓' : '') + '   [ENTER]');
   }
   enter() { this.scene.start('Level', { level: this.cursor }); }
@@ -174,8 +174,14 @@ class LevelScene extends Phaser.Scene {
   create() {
     const L = this.L, W = LEVEL_LEN + ARENA_W;
     this.save = this.registry.get('save');
-    this.owned = testMode() ? [...WEAPON_ORDER] : [...this.save.weapons];
+    const have = testMode() ? [...WEAPON_ORDER, ...Object.keys(PETS)] : this.save.weapons;
+    this.owned = WEAPON_ORDER.filter(w => w === 'fists' || have.includes(w));
+    this.pets = Object.keys(PETS).filter(k => have.includes(k));
     this.weapon = this.owned[this.owned.length - 1];
+    // The scene object is reused between runs: reset everything that belongs to one run
+    this.arenaOn = false; this.bobbaUsed = false; this.boss = null; this.bossBar = null; this.teleportTo = undefined;
+    this.hammerOut = null; this.usedX = []; this.spots = null; this.wasGround = false;
+    this.events.off('resume');
     music(this, 'S7');
 
     this.gt = 0; this.paused = false;
@@ -200,7 +206,7 @@ class LevelScene extends Phaser.Scene {
     this.physics.add.collider(p, this.solids);
     this.physics.add.collider(p, this.ledges, null, oneWay);
     // moving platforms: one-way, generous tolerance because they move under you
-    this.physics.add.collider(p, this.movers, null, (o, m) => o.body.prev.y + o.body.height <= m.body.prev.y + 10 && o.body.velocity.y >= m.body.velocity.y - 5 && this.gt >= this.dropUntil);
+    this.physics.add.collider(p, this.movers, null, (o, m) => o.body.prev.y + o.body.height <= m.body.top + 8 && o.body.velocity.y >= -1 && this.gt >= this.dropUntil);
 
     // Groups
     this.enemies = this.physics.add.group();
@@ -211,14 +217,8 @@ class LevelScene extends Phaser.Scene {
     this.physics.add.overlap(p, this.enemyShots, (pl, s) => { if (s.active) { this.hurtPlayer(s.dmg, s); if (!s.wave) s.destroy(); } });
 
     // Spawn level content
-    const lay = LEVEL_LAYOUT;
-    this.placing = true;
-    lay.mini.forEach(x => this.spawnBoss(x, false));
-    lay.monkey.forEach(x => this.spawnEnemy('monkey', x));
-    lay.gayansh.forEach(x => this.spawnEnemy('gayansh', x));
-    lay.aunty.forEach((x, i) => { const a = this.spawnEnemy('aunty', x); a.line = TEXT.aunty[i % TEXT.aunty.length]; });
-    lay.bobba.forEach(x => this.spawnEnemy('bobba', x));
-    this.placing = false;
+    this.placeEnemies();
+    this.makePets();
 
     // Camera + atmosphere
     this.cameras.main.setBounds(0, 0, LEVEL_LEN + ARENA_W, VH).startFollow(p, true, 0.12, 0.12);
@@ -236,57 +236,109 @@ class LevelScene extends Phaser.Scene {
     this.banner(`Level ${this.levelIndex + 1}: ${L.name}`);
   }
 
+  // Scatter regular enemies along the run: one per evenly spaced slot (randomly jittered),
+  // types shuffled per level; Bobbas only take slots in the second half.
+  placeEnemies() {
+    const r = rng(this.levelIndex * 977 + 3), list = [];
+    Object.entries(LEVEL_ENEMIES).forEach(([k, n]) => { for (let i = 0; i < n; i++) list.push(k); });
+    const from = 700, to = LEVEL_LEN - 250, step = (to - from) / list.length;
+    const xs = list.map((_, j) => from + (j + 0.2 + r() * 0.6) * step);
+    const free = xs.map((_, j) => j), take = pred => { const c = free.filter(j => pred(xs[j])); const j = c[Math.floor(r() * c.length)]; free.splice(free.indexOf(j), 1); return xs[j]; };
+    const half = (from + to) / 2, placed = [];
+    list.filter(k => k === 'bobba').forEach(k => placed.push([k, take(x => x > half)]));
+    list.filter(k => k !== 'bobba').sort(() => r() - 0.5).forEach(k => placed.push([k, take(() => true)]));
+    this.placing = true; let lines = 0;
+    placed.forEach(([k, x]) => {
+      if (k === 'mini') this.spawnBoss(x, false);
+      else { const e = this.spawnEnemy(k, x); if (k === 'aunty') e.line = TEXT.aunty[lines++ % TEXT.aunty.length]; }
+    });
+    this.placing = false;
+  }
+
   // ---------------- World ----------------
   buildWorld(W) {
     const T = genTerrain(this.levelIndex + 1, LEVEL_LEN, GROUND_Y);
-    this.usedX = [];
     T.ground.push({ x0: LEVEL_LEN, x1: W, top: GROUND_Y });           // flat boss arena
     this.segs = T.ground;
+    const HM = this.hm = buildHeightmap(T.ground, W, this.levelIndex + 1, LEVEL_LEN);
+    const h = HM.h, res = HM.res, n = h.length, bottom = VH + 64;
     this.solids = this.physics.add.staticGroup();
     this.ledges = this.physics.add.staticGroup();
     const th = this.theme = THEMES[Math.min(this.levelIndex, THEMES.length - 1)];
     const own = this.registry.get('loaded'), tex = (code, k) => own.has(code) ? code : k + th.id;
     const tTop = tex('D1', 'gt_'), tFill = tex('D5', 'gf_'), tPlat = tex('D2', 'gp_');
     const r = rng(this.levelIndex * 31 + 7);
-    const bottom = VH + 64;
-    this.segs.forEach((g, i) => {
-      const w = g.x1 - g.x0;
-      const z = this.add.zone(g.x0 + w / 2, (g.top + bottom) / 2, w, bottom - g.top);
+
+    // Physics: one static body per run of equal-height columns. Slope steps only collide from the top
+    // (you walk up them); real faces (walls, cliffs, pit edges) collide from the side too.
+    for (let i = 0; i < n;) {
+      if (isNaN(h[i])) { i++; continue; }
+      let j = i; while (j + 1 < n && h[j + 1] === h[i] && !HM.sharpAt[j + 1]) j++;
+      const x0 = i * res, x1 = (j + 1) * res, top = h[i], lh = i > 0 ? h[i - 1] : NaN, rh = j + 1 < n ? h[j + 1] : NaN;
+      const z = this.add.zone((x0 + x1) / 2, (top + bottom) / 2, x1 - x0, bottom - top);
       this.physics.add.existing(z, true); this.solids.add(z);
-      this.add.tileSprite(g.x0, g.top + 32, w, bottom - g.top - 32, tFill).setOrigin(0).setTilePosition(g.x0, g.top - GROUND_Y).setDepth(2);
-      this.add.tileSprite(g.x0, g.top, w, 32, tTop).setOrigin(0).setTilePosition(g.x0, 0).setDepth(2);
-      if (th.tufts && r() < 0.5) this.add.tileSprite(g.x0 + 4, g.top - 8, Math.min(w - 8, 32 + r() * 64), 10, 'deco_grass').setOrigin(0).setDepth(3).setAlpha(0.8);
-      // exposed side faces get a dark edge
-      const prev = this.segs[i - 1], next = this.segs[i + 1];
-      const lTop = prev && prev.x1 === g.x0 ? prev.top : bottom, rTop = next && next.x0 === g.x1 ? next.top : bottom;
-      if (lTop > g.top) this.add.rectangle(g.x0, g.top + 2, 3, lTop - g.top, 0x0c0b0d, 0.75).setOrigin(0).setDepth(2);
-      if (rTop > g.top) this.add.rectangle(g.x1 - 3, g.top + 2, 3, rTop - g.top, 0x0c0b0d, 0.75).setOrigin(0).setDepth(2);
-      if (next && next.x0 > g.x1) this.add.tileSprite(g.x1, VH - 120, next.x0 - g.x1, 120, 'fx_pit').setOrigin(0).setDepth(2);
-      // props
-      if (w >= 160 && g.x0 < LEVEL_LEN && r() < th.trees) this.add.image(g.x0 + 40 + r() * (w - 80), g.top + 6, 'deco_tree').setOrigin(0.5, 1).setScale(0.7 + r() * 0.4).setDepth(1).setFlipX(r() < 0.5);
-      if (w < 64) return;
-      for (let x = g.x0 + 22; x < g.x1 - 22; x += 50 + r() * 70) {
-        if (r() < 0.4) continue;
-        const k = th.deco[Math.floor(r() * th.deco.length)];
-        const d = this.add.image(x, g.top + 2, 'prop_' + k).setOrigin(0.5, 1).setDepth(r() < 0.12 ? 6 : 3).setFlipX(r() < 0.5);
-        if (d.depth === 6) d.setAlpha(0.85);
-        if (k === 'lamp') { d.setDepth(1).setFlipX(false); this.add.image(x + 5, g.top - 82, 'fx_glow').setScale(3).setTint(0xffe7a8).setAlpha(0.35).setBlendMode(Phaser.BlendModes.ADD).setDepth(1); }
+      const cc = z.body.checkCollision;
+      cc.down = false; cc.left = isNaN(lh) || lh - top > 10; cc.right = isNaN(rh) || rh - top > 10;
+      i = j + 1;
+    }
+
+    // Visuals: draw the ground into 800px canvas chunks following the heightmap
+    const topImg = this.textures.get(tTop).getSourceImage(), fillImg = this.textures.get(tFill).getSourceImage();
+    const CH = 800;
+    for (let cx = 0; cx < W; cx += CH) {
+      const key = `terrain_${cx}`;
+      if (this.textures.exists(key)) this.textures.remove(key);
+      const t = this.textures.createCanvas(key, CH, bottom), c = t.getContext();
+      c.translate(-cx, 0);
+      c.fillStyle = c.createPattern(fillImg, 'repeat');
+      const i0 = Math.max(0, Math.floor(cx / res) - 1), i1 = Math.min(n, Math.ceil((cx + CH) / res) + 1);
+      for (let i = i0; i < i1; i++) {
+        if (isNaN(h[i])) continue;
+        const x = i * res;
+        c.fillRect(x, h[i] + 30, res, bottom - h[i]);
+        c.drawImage(topImg, x % 32, 0, res, 32, x, h[i], res, 32);
+        // shade exposed faces
+        [[h[i - 1], x], [h[i + 1], x + res - 3]].forEach(([nb, ex]) => {
+          const low = isNaN(nb) ? bottom : nb;
+          if (low - h[i] > 10) { c.fillStyle = 'rgba(10,9,12,0.75)'; c.fillRect(ex, h[i] + 2, 3, low - h[i]); c.fillStyle = c.createPattern(fillImg, 'repeat'); }
+        });
       }
-    });
+      t.refresh();
+      this.add.image(cx, 0, key).setOrigin(0).setDepth(2);
+    }
+    // pits: darken the gap
+    for (let i = 0; i < n;) {
+      if (!isNaN(h[i])) { i++; continue; }
+      let j = i; while (j + 1 < n && isNaN(h[j + 1])) j++;
+      this.add.tileSprite(i * res, VH - 120, (j - i + 1) * res, 120, 'fx_pit').setOrigin(0).setDepth(2);
+      i = j + 1;
+    }
+
+    // props on flat-enough ground
+    const flatAt = x => { const a = this.topAt(x - 12), b = this.topAt(x + 12), m = this.topAt(x); return m !== null && a !== null && b !== null && Math.abs(a - b) <= 3 ? m : null; };
+    for (let x = 340; x < LEVEL_LEN; x += 50 + r() * 70) {
+      const y = flatAt(x); if (y === null || r() < 0.35) continue;
+      if (th.tufts && r() < 0.3) { this.add.image(x, y + 2, 'deco_grass').setOrigin(0.5, 1).setDepth(3).setAlpha(0.8).setCrop(0, 4, 40, 10); continue; }
+      if (r() < th.trees * 0.4) { this.add.image(x, y + 6, 'deco_tree').setOrigin(0.5, 1).setScale(0.7 + r() * 0.4).setDepth(1).setFlipX(r() < 0.5); continue; }
+      const k = th.deco[Math.floor(r() * th.deco.length)];
+      const d = this.add.image(x, y + 2, 'prop_' + k).setOrigin(0.5, 1).setDepth(r() < 0.12 ? 6 : 3).setFlipX(r() < 0.5);
+      if (d.depth === 6) d.setAlpha(0.85);
+      if (k === 'lamp') { d.setDepth(1).setFlipX(false); this.add.image(x + 5, y - 82, 'fx_glow').setScale(3).setTint(0xffe7a8).setAlpha(0.35).setBlendMode(Phaser.BlendModes.ADD).setDepth(1); }
+    }
     T.plats.forEach(pl => {
       const w = pl.x1 - pl.x0;
       const z = this.add.zone(pl.x0 + w / 2, pl.top + 7, w, 14);
       this.physics.add.existing(z, true); this.ledges.add(z);
       this.add.tileSprite(pl.x0, pl.top, w, 16, tPlat).setOrigin(0).setDepth(3);
     });
-    // moving platforms (shuttle smoothly between start and start + dx/dy)
-    this.movers = this.physics.add.group({ allowGravity: false, immovable: true });
+    // moving platforms: static bodies moved by hand each frame (riders are carried in updateMovers)
+    this.movers = this.physics.add.staticGroup();
     T.movers.forEach(m => {
       const pl = this.add.tileSprite(m.x + m.w / 2, m.y + 8, m.w, 16, tPlat).setDepth(3);
-      this.physics.add.existing(pl); this.movers.add(pl);
-      pl.body.setAllowGravity(false).setImmovable(true);
+      this.physics.add.existing(pl, true); this.movers.add(pl);
+      pl.body.setSize(m.w, 14); pl.body.updateFromGameObject();
       pl.home = { x: pl.x, y: pl.y }; pl.m = m; pl.period = 2 * Math.hypot(m.dx, m.dy) / m.speed * 1000;
-      pl.arrow = this.add.text(pl.x, pl.y + 14, m.dy ? '⇅' : '⇆', TXT(10, '#ffd27a')).setOrigin(0.5, 0).setDepth(3).setAlpha(0.6);
+      pl.arrow = this.add.text(pl.x, pl.y + 10, m.dy ? '⇅' : '⇆', TXT(10, '#ffd27a')).setOrigin(0.5, 0).setDepth(3).setAlpha(0.6);
     });
     // fireflies / dust motes in the lamplight
     for (let i = 0; i < 30; i++) {
@@ -296,14 +348,14 @@ class LevelScene extends Phaser.Scene {
       this.tweens.add({ targets: f, alpha: 0.15, duration: 600 + r() * 900, yoyo: true, repeat: -1 });
     }
   }
-  updateMovers(dt) {
+  updateMovers() {
+    const p = this.player, pb = p.body;
     this.movers.getChildren().forEach(pl => {
       const ph = (1 - Math.cos(2 * Math.PI * this.gt / pl.period)) / 2;
-      const tx = pl.home.x + pl.m.dx * ph, ty = pl.home.y + pl.m.dy * ph;
-      // carry Dhruv (and anything standing on it) sideways with the platform
-      const p = this.player, pb = p.body;
-      if (pl.m.dx && Math.abs(pb.bottom - pl.body.top) < 6 && pb.right > pl.body.left && pb.left < pl.body.right && pb.velocity.y >= -1) p.x += tx - pl.x;
-      pl.body.setVelocity((tx - pl.x) * 1000 / dt, (ty - pl.y) * 1000 / dt);
+      const tx = pl.home.x + pl.m.dx * ph, ty = pl.home.y + pl.m.dy * ph, dx = tx - pl.x, dy = ty - pl.y;
+      const riding = Math.abs(pb.bottom - pl.body.top) < 6 && pb.right > pl.body.left + 2 && pb.left < pl.body.right - 2 && pb.velocity.y >= -1 && this.gt >= this.dropUntil;
+      pl.setPosition(tx, ty); pl.body.updateFromGameObject();
+      if (riding) { p.x += dx; p.y += dy; }
       pl.arrow.setPosition(pl.x, pl.y + 10);
     });
   }
@@ -314,21 +366,37 @@ class LevelScene extends Phaser.Scene {
     }
   }
   // Ground height under x (null = pit). Ledges are not counted.
-  topAt(x) { const g = this.segs.find(s => x >= s.x0 && x < s.x1); return g ? g.top : null; }
+  topAt(x) { const v = this.hm.h[Math.floor(x / this.hm.res)]; return v === undefined || isNaN(v) ? null : v; }
+  clearPath(x, dir, dist) { for (let d = 16; d <= dist; d += 16) if (this.topAt(x + dir * d) === null) return false; return true; }
+  onLedge() {
+    const pb = this.player.body;
+    return [...this.ledges.getChildren(), ...this.movers.getChildren()].some(z => Math.abs(pb.bottom - z.body.top) < 5 && pb.right > z.body.left && pb.left < z.body.right);
+  }
+  // a terrain face right next to Dhruv's body (for wall slide / wall jump)
+  wallAt(x) { const pb = this.player.body, s = this.topAt(x); return s !== null && s < pb.bottom - 16; }
   groundY(x) { const t = this.topAt(x); return t === null ? GROUND_Y : t; }
   // Nearest x to the wanted spot that stands on a wide, low-enough piece of ground (no pits / wall tops)
-  standX(x, tries = 6) {
-    this.usedX = this.usedX || [];
-    let best = x, bestD = Infinity;
-    this.segs.forEach(g => {
-      if (g.x1 - g.x0 < 96 || g.top < GROUND_Y - 4 * 32) return;
-      const cx = Phaser.Math.Clamp(x, g.x0 + 40, g.x1 - 40), d = Math.abs(cx - x);
-      if (d < bestD) { bestD = d; best = cx; }
-    });
-    if (tries > 0 && this.usedX.some(u => Math.abs(u - best) < 100)) return this.standX(best + 110, tries - 1);  // don't stack enemies
-    if (this.placing) this.usedX.push(best);
-    return best;
+  // Where an enemy can stand: flat-enough, low-enough ground in the run (not on wall tops, not in the arena).
+  // While placing the level's enemies, keep them ENEMY_MIN_GAP apart (relaxing only if the level is cramped).
+  standX(x) {
+    if (!this.spots) {                               // ground continuous for ±56px with no cliff/pit in between
+      const h = this.hm.h, res = this.hm.res, k = 56 / res;
+      this.spots = [];
+      for (let i = Math.ceil(420 / res); i < (LEVEL_LEN - 150) / res; i += 4) {
+        let ok = true;
+        for (let d = -k; d < k && ok; d++) ok = !isNaN(h[i + d]) && !isNaN(h[i + d + 1]) && Math.abs(h[i + d + 1] - h[i + d]) <= 10;
+        if (ok) this.spots.push(i * res);
+      }
+    }
+    const near = gap => this.spots.filter(c => this.usedX.every(u => Math.abs(u - c) >= gap)).sort((a, b) => Math.abs(a - x) - Math.abs(b - x))[0];
+    if (!this.placing) return near(0) ?? x;
+    for (const gap of [ENEMY_MIN_GAP, ENEMY_MIN_GAP * 0.6, 100, 0]) {
+      const c = near(gap);
+      if (c !== undefined) { this.usedX.push(c); return c; }
+    }
+    return x;
   }
+
 
   openPause() {
     if (this.paused || this.dead || !this.scene.isActive()) return;
@@ -347,6 +415,7 @@ class LevelScene extends Phaser.Scene {
     this.weaponIcon = this.add.image(VW - 150, 24, 'W0').setScrollFactor(0).setDepth(100).setDisplaySize(28, 28);
     this.weaponText = this.add.text(VW - 130, 14, '', TXT(13)).setScrollFactor(0).setDepth(100);
     this.msg = this.add.text(VW / 2, 70, '', TXT(18, '#ffd27a')).setOrigin(0.5).setScrollFactor(0).setDepth(100);
+    this.petText = this.add.text(14, 36, '', TXT(11, '#9ff5e0')).setScrollFactor(0).setDepth(100);
     this.updateHud();
   }
   updateHud() {
@@ -354,6 +423,7 @@ class LevelScene extends Phaser.Scene {
     const w = WEAPONS[this.weapon];
     this.weaponIcon.setTexture(w.icon).setDisplaySize(28, 28);
     this.weaponText.setText(`${w.name}\n${this.owned.length > 1 ? 'Q/E switch' : ''}`);
+    if (this.petText) this.petText.setText([this.pets.includes('cat') ? 'Cat' : '', this.pets.includes('healer') ? `Fairy heals: ${this.healsLeft}` : ''].filter(Boolean).join('  ·  '));
   }
   banner(text, ms = 2000) {
     this.msg.setText(text).setAlpha(1);
@@ -377,11 +447,61 @@ class LevelScene extends Phaser.Scene {
   setWeapon(id) {
     if (!this.owned.includes(id)) return;
     this.weapon = id;
-    if (this.companion) { this.companion.destroy(); this.companion = null; }
-    const c = WEAPONS[id].companion;
-    if (c === 'cat') { this.companion = this.add.image(this.player.x, this.player.y + 18, 'W4').setDisplaySize(28, 28).setDepth(6); this.companion.nextBite = 0; }
-    if (c === 'fairy') { this.companion = this.add.image(this.player.x, this.player.y - 50, 'W5').setDisplaySize(24, 24).setDepth(6); this.companion.nextHeal = this.gt + 5000; }
     this.updateHud();
+  }
+
+  // ---------------- Companions (always with Dhruv once won) ----------------
+  makePets() {
+    const p = this.player;
+    this.cat = this.fairy = null;
+    if (this.pets.includes('cat')) {
+      const c = this.cat = this.physics.add.sprite(p.x - 40, p.y, 'W4').setDisplaySize(28, 28).setDepth(6);
+      c.nextBite = 0; c.setMaxVelocity(400, 900);
+      this.physics.add.collider(c, this.solids);
+      this.physics.add.collider(c, this.ledges, null, (o, z) => o.body.velocity.y >= 0 && o.body.prev.y + o.body.height <= z.body.top + 4);
+      this.physics.add.collider(c, this.movers, null, (o, z) => o.body.velocity.y >= 0 && o.body.prev.y + o.body.height <= z.body.top + 8);
+    }
+    if (this.pets.includes('healer')) {
+      this.fairy = this.add.image(p.x, p.y - 50, 'W5').setDisplaySize(24, 24).setDepth(6);
+      this.fairy.nextHeal = 0; this.healsLeft = PETS.healer.perLevel;
+    }
+  }
+  updatePets(t) {
+    const p = this.player;
+    if (this.cat) {
+      const c = this.cat, P = PETS.cat, ground = c.body.blocked.down || c.body.touching.down;
+      // lost (fell, or left far behind): reappear next to Dhruv
+      if (c.y > VH + 30 || Math.abs(c.x - p.x) > 450) { c.body.reset(p.x - this.facing * 30, p.y - 10); this.dust(c.x, c.y + 10); }
+      const target = this.enemies.getChildren().filter(e => e.active && !e.def.invulnerable && !e.hidden && !e.powering &&
+        Math.abs(e.x - p.x) - e.displayWidth / 2 < P.notice && Math.abs(e.y - p.y) < 80)      // only enemies close to Dhruv
+        .sort((a, b) => Math.abs(a.x - c.x) - Math.abs(b.x - c.x))[0];
+      let goal = p.x - this.facing * 36;
+      if (target) {
+        const gap = Math.abs(target.x - c.x) - target.displayWidth / 2;
+        goal = target.x - Math.sign(target.x - c.x || 1) * (target.displayWidth / 2 + 6);
+        if (gap <= P.reach && t > c.nextBite) {                                  // bite: close range only
+          c.nextBite = t + P.cd; this.damageEnemy(target, P.dmg, 0);
+          if (ground) c.setVelocityY(-120);
+        }
+      }
+      const dx = goal - c.x, vx = Math.abs(dx) < 8 ? 0 : Math.sign(dx) * Math.min(P.speed, Math.abs(dx) * 5);
+      c.setVelocityX(vx);
+      if (ground && vx) {                                                        // walks; hops steps and gaps
+        const dir = Math.sign(vx);
+        if ((dir < 0 && c.body.blocked.left) || (dir > 0 && c.body.blocked.right)) c.setVelocityY(-520);
+        else if (this.topAt(c.x + dir * 18) === null) c.setVelocityY(-560);
+      }
+      if (!this.registry.get('placeholders').has('W4') && vx) c.setFlipX(vx < 0);
+    }
+    if (this.fairy) {
+      const f = this.fairy;
+      f.setPosition(Phaser.Math.Linear(f.x, p.x - this.facing * 24, 0.2), p.y - 46 + Math.sin(t / 250) * 4);
+      f.setAlpha(this.healsLeft > 0 ? 1 : 0.35);
+      if (this.hp < PLAYER.hp && this.healsLeft > 0 && t > f.nextHeal) {
+        f.nextHeal = t + PETS.healer.cd; this.healsLeft--; this.hp = Math.min(PLAYER.hp, this.hp + PETS.healer.heal);
+        this.updateHud(); this.say(p, `+${PETS.healer.heal}`, 600, '#7dff9a');
+      }
+    }
   }
   cycleWeapon(d) {
     const i = this.owned.indexOf(this.weapon);
@@ -471,7 +591,7 @@ class LevelScene extends Phaser.Scene {
     e.hp -= dmg; sfx(this, 'S3');
     e.setTintFill(0xffffff);
     this.time.delayedCall(70, () => { if (e.active) { e.clearTint(); if (e.phase === 2) e.setTint(0xff9999); } });
-    if (!e.isBoss && knock) { e.setVelocityX(knock); e.stunUntil = this.gt + 180; }
+    if (!e.isBoss && knock && e.type !== 'monkey') { e.setVelocityX(knock); e.stunUntil = this.gt + 180; }
     if (e.isBoss) this.updateBossBar();
     if (e.hp <= 0) return this.killEnemy(e);
   }
@@ -607,7 +727,15 @@ class LevelScene extends Phaser.Scene {
     if (e.mount) e.mount.setPosition(e.x, e.y + e.displayHeight / 2 - 40).setFlipX(e.flipX);
     if (e.icon) e.icon.setPosition(e.x, e.y - 26);
     if (e.powering || t < e.stunUntil) return;
-    if (e.y > VH + 50) return this.killEnemy(e); // fell in a pit (a stolen weapon comes back)
+    if (e.type === 'monkey') {                       // the monkey never falls: remember safe ground, rescue if needed
+      if (e.body.blocked.down && this.topAt(e.x - 24) !== null && this.topAt(e.x + 24) !== null) e.safeX = e.x;
+      if (e.body.blocked.down) e.safeY = e.y;
+      const overPit = this.topAt(e.x) === null;
+      if (e.y > VH || (overPit && e.body.velocity.y > 0 && e.y > (e.safeY || e.y) + 24)) {   // dropping into a pit: back to safe ground
+        const sx = e.safeX || e.baseX; e.body.reset(sx, this.groundY(sx) - 20); e.runDir = -(e.runDir || 1);
+      }
+    }
+    if (e.y > VH + 50) return this.killEnemy(e); // fell in a pit
 
     // Boss specials
     if (e.isBoss && e.phase === 2 && d.special && t > e.nextSpecial && e.state !== 'leap') {
@@ -686,11 +814,17 @@ class LevelScene extends Phaser.Scene {
           // flees but never leaves the screen: turns at the screen edge and jumps over Dhruv
           const v = this.cameras.main.worldView, ground = e.body.blocked.down;
           if (e.runDir === undefined) e.runDir = Math.sign(e.x - p.x) || 1;
-          if ((e.runDir > 0 && e.x > v.right - 50) || (e.runDir < 0 && e.x < v.left + 50)) {
-            e.runDir *= -1; if (ground) e.setVelocityY(-620);                 // leap back over Dhruv
-          } else if (ground && t > (e.nextHop || 0)) { e.nextHop = t + 700 + Math.random() * 800; e.setVelocityY(-380); }
+          if (ground && ((e.runDir > 0 && e.x > v.right - 110) || (e.runDir < 0 && e.x < v.left + 110))) {
+            e.runDir *= -1; if (ground && this.clearPath(e.x, e.runDir, 280)) e.setVelocityY(-620);   // leap back over Dhruv
+          } else if (ground && t > (e.nextHop || 0)) { e.nextHop = t + 700 + Math.random() * 800; if (this.clearPath(e.x, e.runDir, 180)) e.setVelocityY(-380); }
           e.setVelocityX(e.runDir * 230);
-          e.x = Phaser.Math.Clamp(e.x, v.left + 16, v.right - 16);
+          if (e.x < v.left - 40 || e.x > v.right + 40) {                         // camera jumped (send-back, respawn): come back into view
+            const side = e.x < v.left ? 1 : -1;
+            for (let x = side > 0 ? v.left + 40 : v.right - 40; x > v.left && x < v.right; x += side * 16)
+              if (this.topAt(x) !== null && this.topAt(x + 16) !== null) { e.body.reset(x, this.topAt(x) - 20); e.runDir = side; this.dust(x, this.topAt(x)); break; }
+          }
+          const cx = Phaser.Math.Clamp(e.x, v.left + 16, v.right - 16);          // keep on screen, but never over a pit
+          if (cx !== e.x && this.topAt(cx) !== null) { e.x = cx; if (!ground) e.setVelocityX(0); }
           const left = Math.ceil((e.escapeAt - t) / 1000);
           if (e.timer) e.timer.setText(left).setPosition(e.x, e.y - 44);
           if (t > e.escapeAt) {
@@ -698,7 +832,7 @@ class LevelScene extends Phaser.Scene {
             if (!testMode()) { this.save.weapons = this.save.weapons.filter(x => x !== w); writeSave(this.save); }
             this.banner(`The monkey escaped with your ${WEAPONS[w].name}! Beat that boss again to get it back.`, 3000);
             e.body.enable = false; e.timer.destroy();
-            this.tweens.add({ targets: [e, e.icon], y: '-=420', duration: 700, ease: 'Quad.in', onComplete: () => { e.icon.destroy(); e.destroy(); } });
+            this.tweens.add({ targets: [e, e.icon], y: '-=420', duration: 700, ease: 'Quad.in', onComplete: () => { if (e.icon) e.icon.destroy(); if (e.active) e.destroy(); } });
           }
         } else if (dist < 400) e.setVelocityX(Math.sign(dx) * d.speed); else e.setVelocityX(0);
         break;
@@ -713,12 +847,13 @@ class LevelScene extends Phaser.Scene {
           e.moving = true; e.crack.setVisible(false);
           this.cameras.main.shake(140, 0.005); this.dust(e.x, e.top);
           this.tweens.add({ targets: e, y: e.top - d.h / 2, duration: 380, ease: 'Back.out', onComplete: () => {
+            if (!e.active) return;
             e.moving = false; e.hidden = false; e.setDepth(4); e.body.enable = true; e.body.reset(e.x, e.y);
             e.nextLine = t + 4000; this.say(e, e.line, 2000, '#9ff5e0');
           } });
         } else if (!e.hidden && dist > 420) {                                  // sink back down
           e.moving = true; e.body.enable = false; e.setDepth(1); this.dust(e.x, e.top);
-          this.tweens.add({ targets: e, y: e.top + d.h / 2 + 6, duration: 500, onComplete: () => { e.moving = false; e.hidden = true; e.crack.setVisible(true); e.nextRise = this.gt + 1200; } });
+          this.tweens.add({ targets: e, y: e.top + d.h / 2 + 6, duration: 500, onComplete: () => { if (!e.active) return; e.moving = false; e.hidden = true; e.crack.setVisible(true); e.nextRise = this.gt + 1200; } });
         } else if (!e.hidden && dist < 180 && t > e.nextLine) { e.nextLine = t + 4000; this.say(e, e.line, 2000, '#9ff5e0'); }
         break;
     }
@@ -756,7 +891,7 @@ class LevelScene extends Phaser.Scene {
     sfx(this, 'S9');
     this.enemies.getChildren().slice().forEach(e => e.destroy());
     this.enemyShots.clear(true, true);
-    const reward = this.L.reward, w = WEAPONS[reward];
+    const reward = this.L.reward, w = itemInfo(reward), pet = !!PETS[reward];
     this.time.delayedCall(800, () => {
       sfx(this, 'S10');
       if (!testMode()) {
@@ -768,7 +903,7 @@ class LevelScene extends Phaser.Scene {
       this.add.rectangle(cx, cy, VW, 160, 0x000000, 0.7).setScrollFactor(0).setDepth(110);
       const ic = this.add.image(cx, cy - 25, w.icon).setScrollFactor(0).setDepth(111).setDisplaySize(56, 56);
       this.tweens.add({ targets: ic, angle: 360, duration: 800 });
-      this.add.text(cx, cy + 30, `${this.B.name} defeated!\nDhruv got the ${w.name}!`, TXT(20, '#ffd27a')).setOrigin(0.5).setAlign('center').setScrollFactor(0).setDepth(111);
+      this.add.text(cx, cy + 30, `${this.B.name} defeated!\n${pet ? `The ${w.name} joins Dhruv for good!` : `Dhruv got the ${w.name}!`}`, TXT(20, '#ffd27a')).setOrigin(0.5).setAlign('center').setScrollFactor(0).setDepth(111);
       this.time.delayedCall(3000, () => this.scene.start('Map'));
     });
   }
@@ -778,7 +913,7 @@ class LevelScene extends Phaser.Scene {
     if (this.dead || this.paused) return;
     this.gt += Math.min(dt, 50);                    // own clock: stops while paused
     const t = this.gt, p = this.player, c = this.ctl;
-    this.updateMovers(Math.min(dt, 50));
+    this.updateMovers();
     if (this.teleportTo !== undefined) { p.body.reset(this.teleportTo, this.groundY(this.teleportTo) - 60); this.teleportTo = undefined; }
     c.poll();
     if (c.pressed('pause')) return this.openPause();
@@ -788,11 +923,17 @@ class LevelScene extends Phaser.Scene {
     // weapon switching
     if (c.pressed('prevWeapon')) this.cycleWeapon(-1);
     if (c.pressed('nextWeapon')) this.cycleWeapon(1);
-    for (let i = 0; i < 7; i++) if (c.pressed('slot' + i)) this.setWeapon(WEAPON_ORDER[i]);
+    for (let i = 0; i < WEAPON_ORDER.length; i++) if (c.pressed('slot' + i)) this.setWeapon(WEAPON_ORDER[i]);
 
     const left = c.held('left'), right = c.held('right');
     const attackPressed = c.pressed('attack');
-    const onGround = p.body.blocked.down || p.body.touching.down;
+    let onGround = p.body.blocked.down || p.body.touching.down;
+    // stick to the ground when walking down a slope instead of hopping off every step
+    if (!onGround && this.wasGround && this.jumps === 0 && p.body.velocity.y >= 0 && t > this.knockUntil) {
+      const s = this.topAt(p.x), d = s === null ? 99 : s - p.body.bottom;
+      if (d > 0 && d <= 12) { p.y += d; p.body.y += d; onGround = true; }
+    }
+    this.wasGround = onGround;
     if (c.pressed('jump')) this.jumpBuf = t + 130;
     if (onGround) { this.jumps = 0; this.lastGround = t; }
 
@@ -817,8 +958,8 @@ class LevelScene extends Phaser.Scene {
     // duck (+ jump = drop through a ledge)
     const wantDuck = onGround && c.held('down');
     if (wantDuck !== this.ducking) { this.ducking = wantDuck; this.setPlayerBody(); }
-    const top = this.topAt(p.x), onSolid = onGround && top !== null && Math.abs(p.body.bottom - top) < 3;
-    if (this.ducking && c.pressed('jump') && !onSolid) {
+    const top = this.topAt(p.x), ledge = onGround && this.onLedge(), onSolid = onGround && !ledge && top !== null && Math.abs(p.body.bottom - top) < 10;
+    if (this.ducking && c.pressed('jump') && ledge) {
       this.dropUntil = t + 250; this.jumpBuf = 0; this.ducking = false; this.setPlayerBody(); p.y += 4;
     }
 
@@ -830,11 +971,15 @@ class LevelScene extends Phaser.Scene {
     else p.setVelocityX(this.pullX);
     this.pullX = 0;
 
-    // wall slide: airborne, pushing into a wall
-    const wall = p.body.blocked.left && left ? -1 : p.body.blocked.right && right ? 1 : 0;
-    if (!onGround && wall) {
-      this.wallDir = wall; this.wallUntil = t + 120;
-      if (p.body.velocity.y > 100) p.setVelocityY(100);
+    // wall contact (blocked, or a terrain face within a few px): wall jump works even without
+    // holding toward the wall; holding toward it also slides slowly down
+    const pb = p.body, wl = pb.blocked.left || this.wallAt(pb.left - 4), wr = pb.blocked.right || this.wallAt(pb.right + 4);
+    if (!onGround && (wl || wr)) {
+      this.wallDir = wr ? 1 : -1; this.wallUntil = t + 170;
+      if (((wr && right) || (wl && left)) && pb.velocity.y > 90) {
+        p.setVelocityY(90);
+        if (t > (this.slideDust || 0)) { this.slideDust = t + 110; this.dust(wr ? pb.right : pb.left, p.y); }
+      }
     }
     p.setFlipX(this.facing < 0);
 
@@ -857,7 +1002,7 @@ class LevelScene extends Phaser.Scene {
     if (attackPressed) this.attack();
 
     // fell into a pit: lose a heart, back to the last safe ground
-    if (onSolid && this.topAt(p.x - 48) === top && this.topAt(p.x + 48) === top) this.safeX = p.x;
+    if (onSolid) { const a = this.topAt(p.x - 48), b = this.topAt(p.x + 48); if (a !== null && b !== null && Math.abs(a - top) < 20 && Math.abs(b - top) < 20) this.safeX = p.x; }
     if (p.y > VH + 40) {
       this.invulnUntil = 0; this.hurtPlayer(1, p);
       if (!this.dead) { p.setPosition(this.safeX, this.groundY(this.safeX) - 40).setVelocity(0, 0); this.knockUntil = 0; }
@@ -872,7 +1017,7 @@ class LevelScene extends Phaser.Scene {
     }
 
     this.updateHammer(t);
-    this.updateCompanion(t);
+    this.updatePets(t);
     this.tickEnemies(t);
 
     if (!this.arenaOn && p.x > LEVEL_LEN + 80) this.startBoss();
@@ -895,30 +1040,6 @@ class LevelScene extends Phaser.Scene {
     });
   }
 
-  updateCompanion(t) {
-    const c = this.companion; if (!c) return;
-    const p = this.player;
-    if (this.weapon === 'cat') {
-      if (!c.busy) { const nx = Phaser.Math.Linear(c.x, p.x - this.facing * 30, 0.15), top = this.topAt(nx); c.setPosition(nx, top === null ? p.y + 18 : Math.min(top, p.y + 32) - 14).setFlipX(this.facing < 0); }
-      if (t > c.nextBite && !c.busy) {
-        const target = this.enemies.getChildren().filter(e => e.active && !e.def.invulnerable && Math.abs(e.x - p.x) < 260)
-          .sort((a, b) => Math.abs(a.x - p.x) - Math.abs(b.x - p.x))[0];
-        if (target) {
-          c.busy = true; c.nextBite = t + 900;
-          this.tweens.add({
-            targets: c, x: target.x, y: target.y, duration: 160, yoyo: true,
-            onYoyo: () => target.active && this.damageEnemy(target, 1, 0), onComplete: () => { c.busy = false; },
-          });
-        }
-      }
-    } else if (this.weapon === 'healer') {
-      c.setPosition(p.x - this.facing * 22, p.y - 44 + Math.sin(t / 250) * 4);
-      if (t > c.nextHeal) {
-        c.nextHeal = t + 5000;
-        if (this.hp < PLAYER.hp) { this.hp++; this.updateHud(); this.say(p, '+1', 600, '#7dff9a'); }
-      }
-    }
-  }
 }
 
 // =====================================================================
@@ -972,7 +1093,7 @@ window.game = new Phaser.Game({
   width: VW, height: VH,
   pixelArt: true,
   backgroundColor: '#000',
-  physics: { default: 'arcade', arcade: { gravity: { y: 1100 }, debug: false } },
+  physics: { default: 'arcade', arcade: { gravity: { y: 1100 }, debug: false, overlapBias: 8 } },
   input: { gamepad: true },
   scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
   scene: [Boot, Title, MapScene, LevelScene, Pause, GameOver],

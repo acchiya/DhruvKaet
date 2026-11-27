@@ -51,5 +51,5 @@ const CONTROLS_HELP =
   'S + jump     drop off a ledge   down + A\n' +
   'J/K/X/click  attack             X\n' +
   'Shift        dash               B / RT\n' +
-  'Q/E, 1-7     switch weapon      LB / RB\n' +
+  'Q/E, 1-5     switch weapon      LB / RB\n' +
   'Esc / P      pause              Start';

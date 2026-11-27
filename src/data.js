@@ -10,11 +10,16 @@ window.WEAPONS = {
   gloves: { name: 'Boxing Gloves', icon: 'W1', kind: 'melee', dmg: 1, range: 40, cd: 170 },
   belt:   { name: 'Belt',          icon: 'W2', kind: 'melee', dmg: 1, range: 100, cd: 450 },
   sabal:  { name: 'Sabal',         icon: 'W3', kind: 'melee', dmg: 3, range: 56, cd: 750, knock: 420 },
-  cat:    { name: 'Pet Cat',       icon: 'W4', kind: 'melee', dmg: 1, range: 36, cd: 350, companion: 'cat' },
-  healer: { name: 'Fairy Healer',  icon: 'W5', kind: 'melee', dmg: 1, range: 36, cd: 350, companion: 'fairy' },
   hammer: { name: 'Hammer',        icon: 'W6', kind: 'throw', dmg: 2 },
 };
-window.WEAPON_ORDER = ['fists', 'gloves', 'belt', 'sabal', 'cat', 'healer', 'hammer'];
+window.WEAPON_ORDER = ['fists', 'gloves', 'belt', 'sabal', 'hammer'];
+
+// Companions: not weapons. Once won they are always with Dhruv, can't be hurt or stolen.
+window.PETS = {
+  cat:    { name: 'Pet Cat',      icon: 'W4', dmg: 0.5, cd: 350, reach: 34, notice: 110, speed: 250 }, // walks, bites close enemies (fists speed)
+  healer: { name: 'Fairy Healer', icon: 'W5', heal: 1, cd: 7000, perLevel: 3 },                       // heals when hurt, limited per level
+};
+window.itemInfo = id => WEAPONS[id] || PETS[id];
 
 // Regular enemies + minions.  ai: see LevelScene.updateEnemy
 window.ENEMIES = {
@@ -89,15 +94,10 @@ window.MAP_ROUTE = [
   [[470, 500], [640, 545]],                            // Aryabhatta → OAT (level 7)
 ];
 
-// Where things spawn in every level (x positions; level is 4800px + boss arena).
-// Enemies are moved to the nearest solid ground, so pits/walls never swallow them.
-window.LEVEL_LAYOUT = {
-  mini:    [900, 2250, 3500],
-  monkey:  [1650, 3900],
-  gayansh: [2850],
-  aunty:   [1350, 3200],
-  bobba:   [3000, 4200],        // second half only
-};
+// How many of each regular enemy per level. They are scattered randomly (but the same every
+// time for a given level) along the run, at least MIN_GAP apart; Bobbas only in the second half.
+window.LEVEL_ENEMIES = { mini: 3, monkey: 2, gayansh: 2, aunty: 3, bobba: 2 };
+window.ENEMY_MIN_GAP = 260;
 
 window.TEXT = {
   title: 'DHRUVKAAT',                 // #T9

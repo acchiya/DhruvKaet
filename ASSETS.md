@@ -56,8 +56,8 @@ Later: one spritesheet per boss (idle, walk, attack, hurt, power-up animation, p
 | W1 | Boxing Gloves | Yeti | Fast combo, short | ⬜ |
 | W2 | Belt | Choco | Long reach | ⬜ |
 | W3 | Sabal | BLDC | Slow, 3 damage, big knockback | ⬜ |
-| W4 | Pet Cat | Meow | Cat follows you and bites enemies | ⬜ |
-| W5 | Fairy Healer | Tharki | Heals 1 heart every 5s | ⬜ |
+| W4 | Pet Cat (companion, not a weapon) | Meow | Always with Dhruv once won; walks behind him, bites enemies close to him (0.5 dmg, fist speed); can't be hurt | ⬜ |
+| W5 | Fairy Healer (companion, not a weapon) | Tharki | Always with Dhruv once won; heals 1 heart when hurt, 7s cooldown, 3 heals per level | ⬜ |
 | W6 | Hammer | Tyagi | Thrown, comes back | ⬜ |
 
 ## L / D / F: World & UI
