@@ -12,12 +12,15 @@
 </head>
 <body>
   <script src="lib/phaser.min.js"></script>
-  <script src="src/assets.js"></script>
-  <script src="src/data.js"></script>
-  <script src="src/art.js"></script>
-  <script src="src/theme.js"></script>
-  <script src="src/terrain.js"></script>
-  <script src="src/controls.js"></script>
-  <script src="src/main.js"></script>
+  <script>
+    // Load game scripts with a fresh ?v= each time so the browser never runs stale code after a git pull.
+    (function load(files) {
+      if (!files.length) return;
+      const s = document.createElement('script');
+      s.src = files[0] + '?v=' + Date.now();
+      s.onload = () => load(files.slice(1));
+      document.body.appendChild(s);
+    })(['src/assets.js', 'src/data.js', 'src/art.js', 'src/theme.js', 'src/terrain.js', 'src/controls.js', 'src/main.js']);
+  </script>
 </body>
 </html>

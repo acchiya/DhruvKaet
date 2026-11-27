@@ -120,15 +120,22 @@ class MapScene extends Phaser.Scene {
     this.dhruv = this.add.sprite(0, 0, 'A1', 0).setDisplaySize(30, 40).setOrigin(0.5, 1);
     this.info = this.add.text(VW / 2, VH - 20, '', TXT(14)).setOrigin(0.5);
     this.moveTo(start, true);
+    if (!testMode()) this.add.text(VW - 8, 8, 'T: test mode', TXT(11, '#bbb')).setOrigin(1, 0);
     if (testMode()) {
       this.add.rectangle(VW / 2, 14, VW, 26, 0x8b0000, 0.85);
       this.add.text(VW / 2, 14, 'TEST MODE · all levels + weapons · nothing saved · 1-6 jump to level · T to turn off', TXT(12, '#fff')).setOrigin(0.5);
     }
 
     this.ctl = new Controls(this);
-    this.input.keyboard.on('keydown-T', () => { setTestMode(!testMode()); this.scene.restart(); });
-    ['ONE', 'TWO', 'THREE', 'FOUR', 'FIVE', 'SIX'].forEach((n, i) =>
-      this.input.keyboard.on('keydown-' + n, () => { if (testMode()) this.scene.start('Level', { level: i }); }));
+    // T toggles test mode; 1-6 (top row or numpad) pick a level. Uses ev.key so Caps Lock / numpad work too.
+    this.input.keyboard.on('keydown', ev => {
+      const k = (ev.key || '').toLowerCase();
+      if (k === 't') { setTestMode(!testMode()); this.scene.restart(); return; }
+      const m = /^(?:Digit|Numpad)([1-6])$/.exec(ev.code || ''), n = m ? +m[1] - 1 : '123456'.indexOf(k);
+      if (n < 0) return;
+      if (this.unlocked(n)) { this.picked = n; this.moveTo(n); this.time.delayedCall(250, () => this.scene.start('Level', { level: n })); }
+      else this.flash(`Level ${n + 1} is locked. Press T for test mode to open every level.`);
+    });
   }
   update() {
     const c = this.ctl; c.poll();
@@ -138,6 +145,7 @@ class MapScene extends Phaser.Scene {
     if (c.pressed('back')) this.scene.start('Title');
   }
   step(d) {
+    if (this.picked !== undefined) return;            // a level number was just pressed
     const n = this.cursor + d;
     if (n >= 0 && n < LEVELS.length && this.unlocked(n)) { this.moveTo(n); sfx(this, 'S13', { volume: 0.3 }); }
   }
@@ -151,6 +159,11 @@ class MapScene extends Phaser.Scene {
       (save.cleared.includes(i) ? '  ✓' : '') + '   [ENTER]');
   }
   enter() { this.scene.start('Level', { level: this.cursor }); }
+  flash(text) {
+    if (this.note) this.note.destroy();
+    this.note = this.add.text(VW / 2, VH - 48, text, TXT(13, '#ff9a9a')).setOrigin(0.5);
+    this.tweens.add({ targets: this.note, alpha: 0, delay: 1800, duration: 400 });
+  }
 }
 
 // =====================================================================
