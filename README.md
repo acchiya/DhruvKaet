@@ -25,6 +25,8 @@ Gamepad: press any button once after plugging in. Unplugging it mid-level pauses
 
 Falling into a pit costs 1 heart and puts you back on the last safe ground.
 
+**Test mode:** press **T** on the campus map (or open `http://localhost:8000/?test`). Every level opens, Dhruv has every weapon, keys **1-6** jump straight into a level, and nothing is saved. Press T again to go back to your real progress.
+
 Progress (cleared levels, weapons) is saved in the browser.
 
 ## Structure

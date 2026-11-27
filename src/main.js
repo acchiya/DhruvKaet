@@ -6,7 +6,14 @@ function loadSave() {
   try { const s = JSON.parse(localStorage.getItem(SAVE_KEY)); if (s && Array.isArray(s.weapons)) return s; } catch (e) { }
   return { cleared: [], weapons: ['fists'] };
 }
-function writeSave(s) { try { localStorage.setItem(SAVE_KEY, JSON.stringify(s)); } catch (e) { } }
+function writeSave(s) { if (testMode()) return; try { localStorage.setItem(SAVE_KEY, JSON.stringify(s)); } catch (e) { } }
+
+// Test mode: every level open + every weapon, nothing is saved. Toggle with T on the map (or open ?test in the URL).
+const TEST_KEY = 'dhruvkaat-test';
+let TEST = /[?&]test\b/.test(location.search);
+try { TEST = TEST || localStorage.getItem(TEST_KEY) === '1'; } catch (e) { }
+function testMode() { return TEST; }
+function setTestMode(on) { TEST = on; try { on ? localStorage.setItem(TEST_KEY, '1') : localStorage.removeItem(TEST_KEY); } catch (e) { } }
 
 function sfx(scene, code, cfg) {
   const key = scene.cache.audio.exists(code) ? code : code + '_def';
@@ -95,7 +102,7 @@ class MapScene extends Phaser.Scene {
       for (let j = 0; j < sp.length - 1; j += 2) g.lineBetween(sp[j].x, sp[j].y, sp[j + 1].x, sp[j + 1].y);
     }
     // Stops
-    this.unlocked = i => i < LEVELS.length && (i === 0 || save.cleared.includes(i - 1));
+    this.unlocked = i => i < LEVELS.length && (testMode() || i === 0 || save.cleared.includes(i - 1));
     stops.forEach((s, i) => {
       const cleared = save.cleared.includes(i), open = this.unlocked(i);
       const col = cleared ? 0x2ecc71 : open ? 0xffd27a : 0x666666;
@@ -111,8 +118,15 @@ class MapScene extends Phaser.Scene {
     this.dhruv = this.add.sprite(0, 0, 'A1', 0).setDisplaySize(30, 40).setOrigin(0.5, 1);
     this.info = this.add.text(VW / 2, VH - 20, '', TXT(14)).setOrigin(0.5);
     this.moveTo(start, true);
+    if (testMode()) {
+      this.add.rectangle(VW / 2, 14, VW, 26, 0x8b0000, 0.85);
+      this.add.text(VW / 2, 14, 'TEST MODE · all levels + weapons · nothing saved · 1-6 jump to level · T to turn off', TXT(12, '#fff')).setOrigin(0.5);
+    }
 
     this.ctl = new Controls(this);
+    this.input.keyboard.on('keydown-T', () => { setTestMode(!testMode()); this.scene.restart(); });
+    ['ONE', 'TWO', 'THREE', 'FOUR', 'FIVE', 'SIX'].forEach((n, i) =>
+      this.input.keyboard.on('keydown-' + n, () => { if (testMode()) this.scene.start('Level', { level: i }); }));
   }
   update() {
     const c = this.ctl; c.poll();
@@ -145,7 +159,7 @@ class LevelScene extends Phaser.Scene {
   create() {
     const L = this.L, W = LEVEL_LEN + ARENA_W;
     this.save = this.registry.get('save');
-    this.owned = [...this.save.weapons];
+    this.owned = testMode() ? [...WEAPON_ORDER] : [...this.save.weapons];
     this.weapon = this.owned[this.owned.length - 1];
     music(this, 'S7');
 
@@ -614,7 +628,7 @@ class LevelScene extends Phaser.Scene {
           e.setVelocityX(Math.sign(e.x - p.x || 1) * 230);
           if (t > e.escapeAt || e.x > LEVEL_LEN - 20 || e.x < 20) {
             const w = e.carrying; e.carrying = null;
-            this.save.weapons = this.save.weapons.filter(x => x !== w); writeSave(this.save);
+            if (!testMode()) { this.save.weapons = this.save.weapons.filter(x => x !== w); writeSave(this.save); }
             this.banner(`The monkey escaped with your ${WEAPONS[w].name}! Beat that boss again to get it back.`, 3000);
             e.icon.destroy(); e.destroy();
           }
@@ -665,8 +679,10 @@ class LevelScene extends Phaser.Scene {
     const reward = this.L.reward, w = WEAPONS[reward];
     this.time.delayedCall(800, () => {
       sfx(this, 'S10');
-      if (!this.save.cleared.includes(this.levelIndex)) this.save.cleared.push(this.levelIndex);
-      if (!this.save.weapons.includes(reward)) this.save.weapons.push(reward);
+      if (!testMode()) {
+        if (!this.save.cleared.includes(this.levelIndex)) this.save.cleared.push(this.levelIndex);
+        if (!this.save.weapons.includes(reward)) this.save.weapons.push(reward);
+      }
       writeSave(this.save);
       const cx = VW / 2, cy = VH / 2;
       this.add.rectangle(cx, cy, VW, 160, 0x000000, 0.7).setScrollFactor(0).setDepth(110);
