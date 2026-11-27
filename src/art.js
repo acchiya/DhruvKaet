@@ -78,11 +78,19 @@ const ART = {
     ctx.beginPath(); ctx.arc(w * 0.74, h * 0.2, 70, 0, 6.283); ctx.fill();
     ctx.fillStyle = 'rgba(255,240,210,0.85)';
     ctx.beginPath(); ctx.arc(w * 0.74, h * 0.2, 24, 0, 6.283); ctx.fill();
-    ridge(ctx, w, h, h * 0.55, 60, r, shade(far, 1.15), 6);   // distant mountains
-    const mist = ctx.createLinearGradient(0, h * 0.4, 0, h * 0.75);
-    mist.addColorStop(0, 'rgba(200,190,230,0)'); mist.addColorStop(1, 'rgba(200,190,230,0.12)');
-    ctx.fillStyle = mist; ctx.fillRect(0, 0, w, h);
-    ridge(ctx, w, h, h * 0.66, 40, r, far, 5);
+    const cityGlow = ctx.createLinearGradient(0, h * 0.45, 0, h * 0.75);        // warm city light on the horizon
+    cityGlow.addColorStop(0, 'rgba(255,190,120,0)'); cityGlow.addColorStop(1, 'rgba(255,190,120,0.16)');
+    ctx.fillStyle = cityGlow; ctx.fillRect(0, 0, w, h);
+    let x = 0;                                                                  // far skyline + towers
+    while (x < w) {
+      const bw = 30 + r() * 70, bh = 50 + r() * 110;
+      ctx.fillStyle = shade(far, 1.1); ctx.fillRect(x, h * 0.7 - bh, bw, bh + h * 0.3);
+      if (r() < 0.15) { ctx.fillRect(x + bw / 2 - 2, h * 0.7 - bh - 40, 4, 40); ctx.fillStyle = '#ff5a4a'; ctx.fillRect(x + bw / 2 - 1, h * 0.7 - bh - 42, 2, 2); }
+      for (let wy = h * 0.7 - bh + 8; wy < h * 0.7; wy += 12) for (let wx = x + 4; wx < x + bw - 4; wx += 9)
+        if (r() < 0.12) { ctx.fillStyle = glow; ctx.globalAlpha = 0.25 + r() * 0.3; ctx.fillRect(wx, wy, 3, 4); ctx.globalAlpha = 1; }
+      x += bw + r() * 12;
+    }
+    ridge(ctx, w, h, h * 0.74, 14, r, far, 5);                                  // treeline
   },
   groundFill(ctx, w, h) { // dark soil with pebbles and roots, seamless
     ctx.fillStyle = '#211a18'; ctx.fillRect(0, 0, w, h);

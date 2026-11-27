@@ -44,10 +44,10 @@ Later: one spritesheet per boss (idle, walk, attack, hurt, power-up animation, p
 ## N: Regular enemies (every level)
 | Code | Who | What they do | Size | |
 |---|---|---|---|---|
-| N1 | Bobba | Second half of the level. Touch sends you back to the start once, then all Bobbas vanish | 40×60 | ⬜ |
-| N2 | Monkey | Hits you and steals your equipped weapon. Kill it within 9s or the weapon is gone until you beat that boss again | 32×32 | ⬜ |
+| N1 | Bobba | Second half of the level. 3 HP, can be killed. Touch sends you back to the start once, then all Bobbas vanish | 40×60 | ⬜ |
+| N2 | Monkey | Hits you and steals your equipped weapon. Runs around on screen with a 9s countdown; kill it in time or the weapon is gone until you beat that boss again | 32×32 | ⬜ |
 | N3 | Gayansh | Pulls you in, hugs (1 dmg/sec). Mash attack/arrows to escape | 40×60 | ⬜ |
-| N4 | Aunty | Can't be killed; hurts on touch, says a catchphrase when you're near | 40×60 | ⬜ |
+| N4 | Aunty | Hides underground, bursts out when you come close, sinks back when you leave. Can't be killed; hurts on touch, says a catchphrase | 40×60 | ⬜ |
 
 ## W: Weapons (icons; also drawn on the swing / as the thrown hammer)
 | Code | Weapon | From | How it plays | |
@@ -64,8 +64,8 @@ Later: one spritesheet per boss (idle, walk, attack, hurt, power-up animation, p
 | Code | What | Size | |
 |---|---|---|---|
 | L1–L6 | Level backgrounds (Library … Aryabhatta) | 800×480 | 🎨 |
-| D1 / D5 | Ground top / ground fill tiles (seamless) | 32×32 | 🎨 |
-| D2 | Floating ledge tile (repeats sideways) | 32×16 | 🎨 |
+| D1 / D5 | Ground top / ground fill tiles (seamless). Built-in: a different college surface per level; your file replaces it in every level | 32×32 | 🎨 |
+| D2 | Ledge / moving platform tile (repeats sideways). Built-in: shelf, bleacher, girder, desk, balcony, pipe | 32×16 | 🎨 |
 | F1 | Title logo | 400×100 | ⬜ |
 | F2 | Campus map (`F2.jpg`) | 1672×941 | ✅ |
 | F3 | Heart icon | 16×16 | 🎨 |

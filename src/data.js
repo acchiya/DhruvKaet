@@ -18,7 +18,7 @@ window.WEAPON_ORDER = ['fists', 'gloves', 'belt', 'sabal', 'cat', 'healer', 'ham
 
 // Regular enemies + minions.  ai: see LevelScene.updateEnemy
 window.ENEMIES = {
-  bobba:   { name: 'Bobba',   sprite: 'N1', w: 40, h: 60, hp: 1, invulnerable: true, ai: 'bobba', speed: 40 },
+  bobba:   { name: 'Bobba',   sprite: 'N1', w: 40, h: 60, hp: 3, contact: 0, ai: 'bobba', speed: 40 },
   monkey:  { name: 'Monkey',  sprite: 'N2', w: 32, h: 32, hp: 2, contact: 1, ai: 'monkey', speed: 170 },
   gayansh: { name: 'Gayansh', sprite: 'N3', w: 40, h: 60, hp: 3, contact: 0, ai: 'gayansh', speed: 60 },
   aunty:   { name: 'Aunty',   sprite: 'N4', w: 40, h: 60, hp: 1, invulnerable: true, contact: 1, ai: 'aunty' },
@@ -28,43 +28,44 @@ window.ENEMIES = {
 };
 
 // Bosses. `mini` = stats when met inside the level, `boss` = phase-1 stats in the arena.
-// Phase 2 starts at half HP after the power-up animation; `phase2` overrides stats.
+// The boss fight opens with the power-up animation; `phase2` = powered-up behaviour for the whole fight
+// (mini versions in the level are never powered up).
 window.BOSSES = {
   yeti: {
     name: 'YETI', sprite: 'G1', ai: 'melee', speed: 90, range: 64, windup: 450, cd: 1200,
     mini: { hp: 3, dmg: 1 }, boss: { hp: 12, dmg: 2 },
     prop: 'P1', powerText: '*eats chicken*',
-    phase2: { speed: 150, windup: 260, dmg: 3, special: 'slam', specialCd: 4000 },
+    phase2: { speed: 150, windup: 260, special: 'slam', specialCd: 4000 },
   },
   choco: {
     name: 'CHOCO', sprite: 'G2', ai: 'melee', speed: 100, range: 105, windup: 420, cd: 1100,
     mini: { hp: 2, dmg: 2 }, boss: { hp: 14, dmg: 2 },
     prop: 'P2', powerText: '*drinks beer*',
-    phase2: { speed: 150, range: 140, windup: 280, dmg: 3, cd: 800 },
+    phase2: { speed: 150, range: 140, windup: 280, cd: 800 },
   },
   bldc: {
     name: 'BLDC', sprite: 'G3', ai: 'melee', speed: 85, range: 70, windup: 550, cd: 1300,
     mini: { hp: 2, dmg: 2 }, boss: { hp: 16, dmg: 2 },
     prop: 'P3', powerText: '*SABAL! come to me*',
-    phase2: { speed: 110, dmg: 3, special: 'lightning', specialCd: 2500 },
+    phase2: { speed: 110, special: 'lightning', specialCd: 2500 },
   },
   meow: {
     name: 'MEOW', sprite: 'G4', ai: 'summon', speed: 90, minion: 'cat', maxMinions: 2, cd: 3000,
     mini: { hp: 2, dmg: 2 }, boss: { hp: 18, dmg: 3 },
     prop: 'P4', powerText: '*drinks White Monster, feeds the cat*',
-    phase2: { speed: 170, dmg: 4, onPhase2: 'mount', special: 'swarm', specialCd: 5000, maxMinions: 6 },
+    phase2: { speed: 170, onPhase2: 'mount', special: 'swarm', specialCd: 5000, maxMinions: 6 },
   },
   tharki: {
     name: 'THARKI', sprite: 'G5', ai: 'summon', speed: 90, minion: 'warrior', maxMinions: 1, cd: 4000,
     mini: { hp: 1, dmg: 1 }, boss: { hp: 20, dmg: 3 },
     prop: 'P5', powerText: '*swipes right. a lot.*',
-    phase2: { dmg: 4, onPhase2: 'squad', special: 'squad', specialCd: 9000 },
+    phase2: { onPhase2: 'squad', special: 'squad', specialCd: 9000 },
   },
   tyagi: {
     name: 'TYAGI', sprite: 'G6', ai: 'throw', speed: 80, cd: 1800,
     mini: { hp: 2, dmg: 1 }, boss: { hp: 24, dmg: 3 },
     prop: 'P6', powerText: '*drinks beer*',
-    phase2: { cd: 1100, dmg: 4, special: 'slam', specialCd: 3500 },
+    phase2: { cd: 1100, special: 'slam', specialCd: 3500 },
   },
 };
 
@@ -88,13 +89,14 @@ window.MAP_ROUTE = [
   [[470, 500], [640, 545]],                            // Aryabhatta → OAT (level 7)
 ];
 
-// Where things spawn in every level (x positions; level is 3600px + boss arena).
+// Where things spawn in every level (x positions; level is 4800px + boss arena).
+// Enemies are moved to the nearest solid ground, so pits/walls never swallow them.
 window.LEVEL_LAYOUT = {
-  mini:    [700, 1700, 2650],
-  monkey:  [1250, 2950],
-  gayansh: [2150],
-  aunty:   [1000, 2400],
-  bobba:   [2250, 3150],        // second half only
+  mini:    [900, 2250, 3500],
+  monkey:  [1650, 3900],
+  gayansh: [2850],
+  aunty:   [1350, 3200],
+  bobba:   [3000, 4200],        // second half only
 };
 
 window.TEXT = {

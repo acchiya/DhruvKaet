@@ -1,4 +1,4 @@
-const VW = 800, VH = 480, GROUND_Y = 420, LEVEL_LEN = 3600, ARENA_W = 800;
+const VW = 800, VH = 480, GROUND_Y = 420, LEVEL_LEN = 4800, ARENA_W = 800;
 
 // ---------- Save (per browser) ----------
 const SAVE_KEY = 'dhruvkaat-save-v1';
@@ -40,6 +40,8 @@ class Boot extends Phaser.Scene {
     });
   }
   create() {
+    this.registry.set('loaded', new Set(IMAGES.filter(a => this.textures.exists(a.code)).map(a => a.code)));
+    makeThemeTextures(this);
     const ph = new Set();
     IMAGES.forEach(a => { if (!this.textures.exists(a.code)) { makePlaceholder(this, a); if (!a.art) ph.add(a.code); } });
     this.registry.set('placeholders', ph);
@@ -167,9 +169,9 @@ class LevelScene extends Phaser.Scene {
     this.physics.world.setBounds(0, 0, W, VH, true, true, false, false); // no floor: pits are real
     this.add.image(0, 0, L.bg).setOrigin(0).setScrollFactor(0).setDisplaySize(VW, VH);
     const v = Math.min(this.levelIndex, PALETTES.length - 1);
-    makeParallax(this, v);
-    this.pxMid = this.add.tileSprite(0, 0, VW, VH, 'px_mid_' + v).setOrigin(0).setScrollFactor(0);
-    this.pxNear = this.add.tileSprite(0, 0, VW, VH, 'px_near_' + v).setOrigin(0).setScrollFactor(0).setAlpha(0.9);
+    makeCampusParallax(this, v);
+    this.pxMid = this.add.tileSprite(0, 0, VW, VH, 'px_mid_c' + v).setOrigin(0).setScrollFactor(0);
+    this.pxNear = this.add.tileSprite(0, 0, VW, VH, 'px_near_c' + v).setOrigin(0).setScrollFactor(0).setAlpha(0.92);
     this.buildWorld(W);
     this.add.text(LEVEL_LEN - 60, GROUND_Y - 120, 'BOSS →', TXT(20, '#ff6b6b')).setDepth(3);
 
@@ -184,6 +186,8 @@ class LevelScene extends Phaser.Scene {
     const oneWay = (o, pl) => o.body.velocity.y >= 0 && o.body.prev.y + o.body.height <= pl.body.top + 4 && !(o === this.player && this.gt < this.dropUntil);
     this.physics.add.collider(p, this.solids);
     this.physics.add.collider(p, this.ledges, null, oneWay);
+    // moving platforms: one-way, generous tolerance because they move under you
+    this.physics.add.collider(p, this.movers, null, (o, m) => o.body.prev.y + o.body.height <= m.body.prev.y + 10 && o.body.velocity.y >= m.body.velocity.y - 5 && this.gt >= this.dropUntil);
 
     // Groups
     this.enemies = this.physics.add.group();
@@ -195,11 +199,13 @@ class LevelScene extends Phaser.Scene {
 
     // Spawn level content
     const lay = LEVEL_LAYOUT;
+    this.placing = true;
     lay.mini.forEach(x => this.spawnBoss(x, false));
     lay.monkey.forEach(x => this.spawnEnemy('monkey', x));
     lay.gayansh.forEach(x => this.spawnEnemy('gayansh', x));
     lay.aunty.forEach((x, i) => { const a = this.spawnEnemy('aunty', x); a.line = TEXT.aunty[i % TEXT.aunty.length]; });
     lay.bobba.forEach(x => this.spawnEnemy('bobba', x));
+    this.placing = false;
 
     // Camera + atmosphere
     this.cameras.main.setBounds(0, 0, LEVEL_LEN + ARENA_W, VH).startFollow(p, true, 0.12, 0.12);
@@ -219,62 +225,95 @@ class LevelScene extends Phaser.Scene {
 
   // ---------------- World ----------------
   buildWorld(W) {
-    const T = genTerrain(this.levelIndex + 1, LEVEL_LEN, GROUND_Y, []);
+    const T = genTerrain(this.levelIndex + 1, LEVEL_LEN, GROUND_Y);
+    this.usedX = [];
     T.ground.push({ x0: LEVEL_LEN, x1: W, top: GROUND_Y });           // flat boss arena
     this.segs = T.ground;
     this.solids = this.physics.add.staticGroup();
     this.ledges = this.physics.add.staticGroup();
+    const th = this.theme = THEMES[Math.min(this.levelIndex, THEMES.length - 1)];
+    const own = this.registry.get('loaded'), tex = (code, k) => own.has(code) ? code : k + th.id;
+    const tTop = tex('D1', 'gt_'), tFill = tex('D5', 'gf_'), tPlat = tex('D2', 'gp_');
     const r = rng(this.levelIndex * 31 + 7);
     const bottom = VH + 64;
     this.segs.forEach((g, i) => {
       const w = g.x1 - g.x0;
       const z = this.add.zone(g.x0 + w / 2, (g.top + bottom) / 2, w, bottom - g.top);
       this.physics.add.existing(z, true); this.solids.add(z);
-      this.add.tileSprite(g.x0, g.top + 32, w, bottom - g.top - 32, 'D5').setOrigin(0).setTilePosition(g.x0, g.top).setDepth(2);
-      this.add.tileSprite(g.x0, g.top, w, 32, 'D1').setOrigin(0).setTilePosition(g.x0, 0).setDepth(2);
-      this.add.tileSprite(g.x0 - 2, g.top - 12, w + 4, 14, 'deco_grass').setOrigin(0).setTilePosition(g.x0, 0).setDepth(3);
-      // exposed cliff faces get a dark rim + hanging roots
+      this.add.tileSprite(g.x0, g.top + 32, w, bottom - g.top - 32, tFill).setOrigin(0).setTilePosition(g.x0, g.top - GROUND_Y).setDepth(2);
+      this.add.tileSprite(g.x0, g.top, w, 32, tTop).setOrigin(0).setTilePosition(g.x0, 0).setDepth(2);
+      if (th.tufts && r() < 0.5) this.add.tileSprite(g.x0 + 4, g.top - 8, Math.min(w - 8, 32 + r() * 64), 10, 'deco_grass').setOrigin(0).setDepth(3).setAlpha(0.8);
+      // exposed side faces get a dark edge
       const prev = this.segs[i - 1], next = this.segs[i + 1];
       const lTop = prev && prev.x1 === g.x0 ? prev.top : bottom, rTop = next && next.x0 === g.x1 ? next.top : bottom;
-      if (lTop > g.top) { this.add.rectangle(g.x0, g.top + 6, 4, lTop - g.top, 0x0c0908, 0.7).setOrigin(0).setDepth(2); if (lTop - g.top > 60) this.add.image(g.x0 + 3, g.top + 4, 'deco_vine').setOrigin(0.5, 0).setDepth(3); }
-      if (rTop > g.top) { this.add.rectangle(g.x1 - 4, g.top + 6, 4, rTop - g.top, 0x0c0908, 0.7).setOrigin(0).setDepth(2); if (rTop - g.top > 60) this.add.image(g.x1 - 3, g.top + 4, 'deco_vine').setOrigin(0.5, 0).setDepth(3).setFlipX(true); }
+      if (lTop > g.top) this.add.rectangle(g.x0, g.top + 2, 3, lTop - g.top, 0x0c0b0d, 0.75).setOrigin(0).setDepth(2);
+      if (rTop > g.top) this.add.rectangle(g.x1 - 3, g.top + 2, 3, rTop - g.top, 0x0c0b0d, 0.75).setOrigin(0).setDepth(2);
       if (next && next.x0 > g.x1) this.add.tileSprite(g.x1, VH - 120, next.x0 - g.x1, 120, 'fx_pit').setOrigin(0).setDepth(2);
-      // decorations
-      if (w >= 160 && g.x0 < LEVEL_LEN && r() < 0.55) this.add.image(g.x0 + 40 + r() * (w - 80), g.top + 8, 'deco_tree').setOrigin(0.5, 1).setScale(0.7 + r() * 0.45).setDepth(1).setFlipX(r() < 0.5);
-      for (let x = g.x0 + 18; x < g.x1 - 18; x += 40 + r() * 50) {
-        const k = r(); if (k < 0.35) continue;
-        const key = k < 0.5 ? 'deco_rock' : k < 0.6 ? 'deco_rock2' : k < 0.72 ? 'deco_bush' : k < 0.82 ? 'deco_fern' : k < 0.9 ? 'deco_flower' : k < 0.96 ? 'deco_mush' : 'deco_log';
-        const d = this.add.image(x, g.top + 3, key).setOrigin(0.5, 1).setDepth(r() < 0.15 ? 6 : 3).setFlipX(r() < 0.5);
-        if (key === 'deco_mush') this.add.image(x, g.top - 6, 'fx_glow').setTint(0x7ff0d8).setAlpha(0.5).setBlendMode(Phaser.BlendModes.ADD).setDepth(3);
+      // props
+      if (w >= 160 && g.x0 < LEVEL_LEN && r() < th.trees) this.add.image(g.x0 + 40 + r() * (w - 80), g.top + 6, 'deco_tree').setOrigin(0.5, 1).setScale(0.7 + r() * 0.4).setDepth(1).setFlipX(r() < 0.5);
+      if (w < 64) return;
+      for (let x = g.x0 + 22; x < g.x1 - 22; x += 50 + r() * 70) {
+        if (r() < 0.4) continue;
+        const k = th.deco[Math.floor(r() * th.deco.length)];
+        const d = this.add.image(x, g.top + 2, 'prop_' + k).setOrigin(0.5, 1).setDepth(r() < 0.12 ? 6 : 3).setFlipX(r() < 0.5);
         if (d.depth === 6) d.setAlpha(0.85);
+        if (k === 'lamp') { d.setDepth(1).setFlipX(false); this.add.image(x + 5, g.top - 82, 'fx_glow').setScale(3).setTint(0xffe7a8).setAlpha(0.35).setBlendMode(Phaser.BlendModes.ADD).setDepth(1); }
       }
     });
     T.plats.forEach(pl => {
       const w = pl.x1 - pl.x0;
       const z = this.add.zone(pl.x0 + w / 2, pl.top + 7, w, 14);
       this.physics.add.existing(z, true); this.ledges.add(z);
-      this.add.tileSprite(pl.x0, pl.top, w, 16, 'D2').setOrigin(0).setDepth(3);
-      for (let x = pl.x0 + 10; x < pl.x1 - 6; x += 22 + r() * 20) this.add.image(x, pl.top + 12, 'deco_vine').setOrigin(0.5, 0).setDepth(2).setScale(1, 0.5 + r() * 0.6);
+      this.add.tileSprite(pl.x0, pl.top, w, 16, tPlat).setOrigin(0).setDepth(3);
     });
-    // fireflies
-    for (let i = 0; i < 36; i++) {
+    // moving platforms (shuttle smoothly between start and start + dx/dy)
+    this.movers = this.physics.add.group({ allowGravity: false, immovable: true });
+    T.movers.forEach(m => {
+      const pl = this.add.tileSprite(m.x + m.w / 2, m.y + 8, m.w, 16, tPlat).setDepth(3);
+      this.physics.add.existing(pl); this.movers.add(pl);
+      pl.body.setAllowGravity(false).setImmovable(true);
+      pl.home = { x: pl.x, y: pl.y }; pl.m = m; pl.period = 2 * Math.hypot(m.dx, m.dy) / m.speed * 1000;
+      pl.arrow = this.add.text(pl.x, pl.y + 14, m.dy ? '⇅' : '⇆', TXT(10, '#ffd27a')).setOrigin(0.5, 0).setDepth(3).setAlpha(0.6);
+    });
+    // fireflies / dust motes in the lamplight
+    for (let i = 0; i < 30; i++) {
       const x = r() * W, y = 120 + r() * 260;
-      const f = this.add.image(x, y, 'fx_glow').setScale(0.35).setTint(0xd8ff8a).setBlendMode(Phaser.BlendModes.ADD).setDepth(4);
+      const f = this.add.image(x, y, 'fx_glow').setScale(0.3).setTint(0xffe7a8).setBlendMode(Phaser.BlendModes.ADD).setDepth(4);
       this.tweens.add({ targets: f, x: x + (r() - 0.5) * 120, y: y + (r() - 0.5) * 60, duration: 3000 + r() * 3000, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
       this.tweens.add({ targets: f, alpha: 0.15, duration: 600 + r() * 900, yoyo: true, repeat: -1 });
+    }
+  }
+  updateMovers(dt) {
+    this.movers.getChildren().forEach(pl => {
+      const ph = (1 - Math.cos(2 * Math.PI * this.gt / pl.period)) / 2;
+      const tx = pl.home.x + pl.m.dx * ph, ty = pl.home.y + pl.m.dy * ph;
+      // carry Dhruv (and anything standing on it) sideways with the platform
+      const p = this.player, pb = p.body;
+      if (pl.m.dx && Math.abs(pb.bottom - pl.body.top) < 6 && pb.right > pl.body.left && pb.left < pl.body.right && pb.velocity.y >= -1) p.x += tx - pl.x;
+      pl.body.setVelocity((tx - pl.x) * 1000 / dt, (ty - pl.y) * 1000 / dt);
+      pl.arrow.setPosition(pl.x, pl.y + 10);
+    });
+  }
+  dust(x, y) {
+    for (let i = 0; i < 10; i++) {
+      const d = this.add.image(x + (Math.random() - 0.5) * 30, y - 4, 'fx_dot').setTint(0x8a7f74).setScale(0.5 + Math.random() * 0.6).setDepth(7);
+      this.tweens.add({ targets: d, x: d.x + (Math.random() - 0.5) * 70, y: y - 20 - Math.random() * 30, alpha: 0, duration: 450 + Math.random() * 250, onComplete: () => d.destroy() });
     }
   }
   // Ground height under x (null = pit). Ledges are not counted.
   topAt(x) { const g = this.segs.find(s => x >= s.x0 && x < s.x1); return g ? g.top : null; }
   groundY(x) { const t = this.topAt(x); return t === null ? GROUND_Y : t; }
   // Nearest x to the wanted spot that stands on a wide, low-enough piece of ground (no pits / wall tops)
-  standX(x) {
+  standX(x, tries = 6) {
+    this.usedX = this.usedX || [];
     let best = x, bestD = Infinity;
     this.segs.forEach(g => {
       if (g.x1 - g.x0 < 96 || g.top < GROUND_Y - 4 * 32) return;
       const cx = Phaser.Math.Clamp(x, g.x0 + 40, g.x1 - 40), d = Math.abs(cx - x);
       if (d < bestD) { bestD = d; best = cx; }
     });
+    if (tries > 0 && this.usedX.some(u => Math.abs(u - best) < 100)) return this.standX(best + 110, tries - 1);  // don't stack enemies
+    if (this.placing) this.usedX.push(best);
     return best;
   }
 
@@ -386,14 +425,18 @@ class LevelScene extends Phaser.Scene {
   // ---------------- Enemies ----------------
   spawnEnemy(type, x, opts = {}) {
     const d = { ...ENEMIES[type], ...opts };
-    if (!d.fly && !this.arenaOn) x = this.standX(x);
+    if (!d.fly && !this.arenaOn) x = this.standX(x, this.placing ? 6 : 0);
     const gy = this.groundY(x);
     const e = this.enemies.create(x, d.fly ? gy - 120 : gy - d.h / 2 - 2, d.sprite);
     e.setDisplaySize(d.w, d.h); e.def = d; e.type = type;
     e.hp = e.maxHp = d.hp; e.state = 'idle'; e.until = 0; e.nextAttack = 0; e.stunUntil = 0; e.minions = [];
     e.facing = -1; e.baseX = x;
     if (d.fly) e.body.setAllowGravity(false);
-    if (d.ai === 'aunty') { e.body.setImmovable(true); e.body.setAllowGravity(false); e.y = gy - d.h / 2; }
+    if (d.ai === 'aunty') {                       // hides underground until Dhruv comes close
+      e.body.setImmovable(true); e.body.setAllowGravity(false);
+      e.top = gy; e.hidden = true; e.y = gy + d.h / 2 + 6; e.body.enable = false; e.setDepth(1);
+      e.crack = this.add.image(x, gy + 1, 'prop_crack').setOrigin(0.5, 1).setDepth(3);
+    }
     return e;
   }
 
@@ -418,11 +461,12 @@ class LevelScene extends Phaser.Scene {
     if (!e.isBoss && knock) { e.setVelocityX(knock); e.stunUntil = this.gt + 180; }
     if (e.isBoss) this.updateBossBar();
     if (e.hp <= 0) return this.killEnemy(e);
-    if (e.isBoss && e.phase === 1 && e.hp <= e.maxHp / 2) this.powerUp(e);
   }
 
   killEnemy(e) {
-    if (e.carrying) { this.owned.push(e.carrying); this.owned.sort((a, b) => WEAPON_ORDER.indexOf(a) - WEAPON_ORDER.indexOf(b)); this.banner(`Got your ${WEAPONS[e.carrying].name} back!`); this.updateHud(); }
+    if (e.timer) e.timer.destroy();
+    if (e.crack) e.crack.destroy();
+    if (e.carrying) { if (e.icon) e.icon.destroy(); this.owned.push(e.carrying); this.owned.sort((a, b) => WEAPON_ORDER.indexOf(a) - WEAPON_ORDER.indexOf(b)); this.banner(`Got your ${WEAPONS[e.carrying].name} back!`); this.updateHud(); }
     if (e.label) e.label.destroy();
     if (e.mount) e.mount.destroy();
     e.minions.forEach(m => m.active && this.killEnemy(m));
@@ -444,7 +488,8 @@ class LevelScene extends Phaser.Scene {
         e.carrying = w; this.owned = this.owned.filter(x => x !== w);
         this.setWeapon('fists');
         e.icon = this.add.image(e.x, e.y - 26, WEAPONS[w].icon).setDisplaySize(18, 18).setDepth(8);
-        e.escapeAt = this.gt + 9000;
+        e.escapeAt = this.gt + 9000; e.runDir = undefined;
+        e.timer = this.add.text(e.x, e.y - 44, '9', TXT(12, '#ff6b6b')).setOrigin(0.5).setDepth(8);
         this.banner(`Monkey stole your ${WEAPONS[w].name}! Kill it!`);
       }
       return;
@@ -457,7 +502,7 @@ class LevelScene extends Phaser.Scene {
     this.bobbaUsed = true;
     this.banner(TEXT.bobba);
     this.cameras.main.flash(300, 255, 255, 255);
-    this.player.setPosition(80, this.groundY(80) - 60).setVelocity(0, 0); this.safeX = 80;
+    this.teleportTo = 80; this.safeX = 80; this.grabbedBy = null;   // applied in update(): moving the body inside a physics callback gets undone
     this.enemies.getChildren().filter(e => e.def.ai === 'bobba').forEach(e => e.destroy());
   }
 
@@ -468,7 +513,7 @@ class LevelScene extends Phaser.Scene {
     this.banner('Mash J / ← → to break free!', 1200);
   }
 
-  // Boss phase 2
+  // Boss power-up (plays at the start of the boss fight)
   powerUp(e) {
     const B = this.B;
     e.powering = true; e.setVelocity(0, 0); sfx(this, 'S6');
@@ -625,12 +670,22 @@ class LevelScene extends Phaser.Scene {
         break;
       case 'monkey':
         if (e.carrying) {
-          e.setVelocityX(Math.sign(e.x - p.x || 1) * 230);
-          if (t > e.escapeAt || e.x > LEVEL_LEN - 20 || e.x < 20) {
+          // flees but never leaves the screen: turns at the screen edge and jumps over Dhruv
+          const v = this.cameras.main.worldView, ground = e.body.blocked.down;
+          if (e.runDir === undefined) e.runDir = Math.sign(e.x - p.x) || 1;
+          if ((e.runDir > 0 && e.x > v.right - 50) || (e.runDir < 0 && e.x < v.left + 50)) {
+            e.runDir *= -1; if (ground) e.setVelocityY(-620);                 // leap back over Dhruv
+          } else if (ground && t > (e.nextHop || 0)) { e.nextHop = t + 700 + Math.random() * 800; e.setVelocityY(-380); }
+          e.setVelocityX(e.runDir * 230);
+          e.x = Phaser.Math.Clamp(e.x, v.left + 16, v.right - 16);
+          const left = Math.ceil((e.escapeAt - t) / 1000);
+          if (e.timer) e.timer.setText(left).setPosition(e.x, e.y - 44);
+          if (t > e.escapeAt) {
             const w = e.carrying; e.carrying = null;
             if (!testMode()) { this.save.weapons = this.save.weapons.filter(x => x !== w); writeSave(this.save); }
             this.banner(`The monkey escaped with your ${WEAPONS[w].name}! Beat that boss again to get it back.`, 3000);
-            e.icon.destroy(); e.destroy();
+            e.body.enable = false; e.timer.destroy();
+            this.tweens.add({ targets: [e, e.icon], y: '-=420', duration: 700, ease: 'Quad.in', onComplete: () => { e.icon.destroy(); e.destroy(); } });
           }
         } else if (dist < 400) e.setVelocityX(Math.sign(dx) * d.speed); else e.setVelocityX(0);
         break;
@@ -640,14 +695,26 @@ class LevelScene extends Phaser.Scene {
         else e.setVelocityX(0);
         break;
       case 'aunty':
-        if (dist < 180 && t > (e.nextLine || 0)) { e.nextLine = t + 4000; this.say(e, e.line, 2000, '#9ff5e0'); }
+        if (e.moving) break;
+        if (e.hidden && dist < 190 && t > (e.nextRise || 0)) {                 // burst out of the ground
+          e.moving = true; e.crack.setVisible(false);
+          this.cameras.main.shake(140, 0.005); this.dust(e.x, e.top);
+          this.tweens.add({ targets: e, y: e.top - d.h / 2, duration: 380, ease: 'Back.out', onComplete: () => {
+            e.moving = false; e.hidden = false; e.setDepth(4); e.body.enable = true; e.body.reset(e.x, e.y);
+            e.nextLine = t + 4000; this.say(e, e.line, 2000, '#9ff5e0');
+          } });
+        } else if (!e.hidden && dist > 420) {                                  // sink back down
+          e.moving = true; e.body.enable = false; e.setDepth(1); this.dust(e.x, e.top);
+          this.tweens.add({ targets: e, y: e.top + d.h / 2 + 6, duration: 500, onComplete: () => { e.moving = false; e.hidden = true; e.crack.setVisible(true); e.nextRise = this.gt + 1200; } });
+        } else if (!e.hidden && dist < 180 && t > e.nextLine) { e.nextLine = t + 4000; this.say(e, e.line, 2000, '#9ff5e0'); }
         break;
     }
     if (!d.fly && d.ai !== 'aunty' && e.body.blocked.down && e.state !== 'leap') {
       const vx = e.body.velocity.x;
       if (vx && ((vx < 0 && e.body.blocked.left) || (vx > 0 && e.body.blocked.right))) e.setVelocityY(-430);   // hop a step
       else if (vx && this.topAt(e.x + Math.sign(vx) * (e.displayWidth / 2 + 4)) === null) {                    // pit ahead
-        e.setVelocityX(0); if (d.ai === 'bobba') { e.facing *= -1; e.until = t + 2000; }
+        if (d.ai === 'monkey' && e.carrying) { e.runDir = -Math.sign(vx); e.setVelocity(e.runDir * 230, -300); } // monkey turns back at pits
+        else { e.setVelocityX(0); if (d.ai === 'bobba') { e.facing *= -1; e.until = t + 2000; } }
       }
     }
     if (d.ai !== 'aunty' && d.ai !== 'fairy' && !this.registry.get('placeholders').has(e.texture.key)) e.setFlipX(e.body.velocity.x > 0 || (e.state !== 'idle' && e.facing > 0));
@@ -665,7 +732,7 @@ class LevelScene extends Phaser.Scene {
     this.boss = this.spawnBoss(LEVEL_LEN + ARENA_W - 160, true);
     this.boss.powering = true;
     this.banner(this.B.name, 1400);
-    this.time.delayedCall(1200, () => { if (this.boss.active) this.boss.powering = false; });
+    this.time.delayedCall(900, () => { if (this.boss.active) this.powerUp(this.boss); });   // fight opens with the power-up
     this.bossBarBg = this.add.rectangle(VW / 2, VH - 24, 504, 18, 0x000000, 0.8).setScrollFactor(0).setDepth(100);
     this.bossBar = this.add.rectangle(VW / 2 - 250, VH - 24, 500, 12, 0xc0392b).setOrigin(0, 0.5).setScrollFactor(0).setDepth(101);
     this.bossName = this.add.text(VW / 2, VH - 46, this.B.name, TXT(14, '#ff6b6b')).setOrigin(0.5).setScrollFactor(0).setDepth(101);
@@ -698,6 +765,8 @@ class LevelScene extends Phaser.Scene {
     if (this.dead || this.paused) return;
     this.gt += Math.min(dt, 50);                    // own clock: stops while paused
     const t = this.gt, p = this.player, c = this.ctl;
+    this.updateMovers(Math.min(dt, 50));
+    if (this.teleportTo !== undefined) { p.body.reset(this.teleportTo, this.groundY(this.teleportTo) - 60); this.teleportTo = undefined; }
     c.poll();
     if (c.pressed('pause')) return this.openPause();
     const cam = this.cameras.main;

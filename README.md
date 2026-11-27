@@ -33,7 +33,8 @@ Progress (cleared levels, weapons) is saved in the browser.
 - `src/data.js`: all tunable numbers: player, weapons, enemies, bosses, levels, map path
 - `src/assets.js`: every image/sound code
 - `src/art.js`: built-in art (sky, parallax forest, soil, grass, plants) and placeholders
-- `src/terrain.js`: uneven terrain + parkour generator (hills, pits, climb walls, ledges)
+- `src/terrain.js`: uneven terrain + parkour generator (bumpy ground, pits, pillar hops, climb walls, ledges, moving platforms, elevators)
+- `src/theme.js`: college look per area (paving, running track, road, classroom floor, hostel pavers/concrete) + campus props and backdrop
 - `src/controls.js`: keyboard + gamepad input
 - `src/main.js`: game engine (map, level, combat, bosses)
 - `ASSETS.md`: checklist of everything to provide
